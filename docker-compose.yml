@@ -1,35 +1,45 @@
 version: '3.7'
 
+# note that there are no health checks yet so some containers will fail because databases are slow to start up
 services:
 
-  mywebapp:
-    image: mywebapp
-    command: --loghost dbserver
+  webapp:
+    image: webapp
+    command: --loghost dbserver_log
     networks:
       - appnetwork
 # expose the webserver port on the same port on the host
     ports:
       - 8000:8000
     depends_on:
-      - dbserver
+      - dbserver_log
+      - objectstore
 
 # note that we have not created any volumes yet so nothing is saved 
-  dbserver:
-    image: mymysql
+  dbserver_log:
+    image: dbserver_log
     # no exposed ports
     networks:
       - appnetwork
     environment:
       - MYSQL_ROOT_PASSWORD=secret
 
-  restapi:
-    image: restapi
+  dbserver_entity:
+    image: dbserver_entity
+    # no exposed ports
+    networks:
+      - appnetwork
+    environment:
+      - MYSQL_ROOT_PASSWORD=secret
+
+  objectstore:
+    image: objectstore
     ports:
       - 5555:5555
     networks:
       - appnetwork
     depends_on:
-      - dbserver
+      - dbserver_entity
 
 # our network is external which means it should exist already
 networks:

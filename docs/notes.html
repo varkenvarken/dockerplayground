@@ -36,3 +36,11 @@ python -m pip install PyMySQL
 python -m pip install falcon
 python -m pip install SQLAlchemy
 python -m pip install falcon-autocrud
+
+
+
+cd dockerplayground
+docker build -t dbserver_log -f dbserver_log/Dockerfile dbserver_log
+docker build -t dbserver_entity -f dbserver_entity/Dockerfile dbserver_entity/
+docker build -t objectstore -f objectstore/Dockerfile objectstore/
+docker build -t webapp -f webapp/Dockerfile webapp/
