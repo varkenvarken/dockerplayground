@@ -3,7 +3,7 @@ docker create network appnetwork
 # this doesn't expose port 3306 to the host
 docker run --name sqlserver --network appnetwork -e MYSQL_ROOT_PASSWORD=secret -d mysql
 # this does (but not that this container will not restart automatically if docker reboots)
-docker run --name sqlserver --network appnetwork -p 3306:3306 -e MYSQL_ROOT_PASSWORD=secret -d mysql
+docker run --name dbserver --network appnetwork -p 3306:3306 -e MYSQL_ROOT_PASSWORD=secret -d mysql
 # start mysql client in a separate container
 docker run --name sqlclient -it --network appnetwork --rm mysql mysql -hsqlserver -uroot -p
 
@@ -25,6 +25,14 @@ python -m pip install mysql-connector-python
 # in the /webapp dir, test the connection
 python test.py
 
-# create the log table if it doesn't exist
-python createtable.py
 
+# building from Dockerfile
+docker build -t mywebapp .
+
+# running the container
+docker run -d --rm --name mywebapp -p 8000:8000 --network appnetwork mywebapp
+
+
+python -m pip install falcon
+python -m pip install SQLAlchemy
+python -m pip install falcon-autocrud

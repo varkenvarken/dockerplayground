@@ -6,6 +6,6 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-CMD ["python", "./server.py", "-d", "content", "--loghost", "sqlserver"]
+ENTRYPOINT ["python", "./server.py", "-d", "content"]
 
 
