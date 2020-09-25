@@ -32,7 +32,7 @@ docker build -t mywebapp .
 # running the container
 docker run -d --rm --name mywebapp -p 8000:8000 --network appnetwork mywebapp
 
-
+python -m pip install PyMySQL
 python -m pip install falcon
 python -m pip install SQLAlchemy
 python -m pip install falcon-autocrud
