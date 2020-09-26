@@ -1,11 +1,12 @@
 FROM python:3
 
-RUN python -m pip install mysql-connector-python
+RUN python -m pip install PyMySQL
+RUN python -m pip install PyMySQL[rsa]
 
 WORKDIR /usr/src/app
 
-COPY . .
+ENTRYPOINT ["python", "./webapp.py", "-d", "content", "--loghost", "dbserver_log"]
 
-ENTRYPOINT ["python", "./server.py", "-d", "content"]
+HEALTHCHECK CMD ["curl", "--fail", "http://localhost:8000/"]
 
-
+COPY webapp/ .

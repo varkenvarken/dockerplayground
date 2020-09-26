@@ -1,8 +1,7 @@
 from http.server import SimpleHTTPRequestHandler
 from http import HTTPStatus
 
-import mysql.connector
-
+import pymysql.cursors
 
 def create_table(mydb):
     tablename = 'log'
@@ -61,6 +60,13 @@ class LogHTTPRequestHandler(SimpleHTTPRequestHandler):
             </html>
             """
             self.wfile.write(bytes(html,'utf-8'))
+        elif self.requestline.startswith('GET /health '):
+            mycursor = self.mydb.cursor()
+            mycursor.execute("SELECT 1")
+            result = mycursor.fetchall()
+            self.send_response(HTTPStatus.OK)
+            self.end_headers()
+            self.wfile.write(bytes('I am healthy','utf-8'))
         else:
             super().do_GET()
 
@@ -72,37 +78,50 @@ if __name__ == '__main__':
     from functools import partial
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--bind', '-b', metavar='ADDRESS',
-                        help='Specify alternate bind address '
-                             '[default: all interfaces]')
+    parser.add_argument('--host', '-s', default='0.0.0.0',
+                        help='Specify alternate bind address')
     parser.add_argument('--directory', '-d', default=os.getcwd(),
-                        help='Specify alternative directory '
-                        '[default:current directory]')
-    parser.add_argument('port', action='store',
-                        default=8000, type=int,
-                        nargs='?',
+                        help='Specify alternative directory')
+    parser.add_argument('--port', '-P', action='store', default=8000, type=int,
                         help='Specify alternate port [default: 8000]')
     parser.add_argument('--loghost', '-l', default='localhost',
-                        help='MySQL server [default:localhost]')
+                        help='MySQL server for logging [default:localhost]')
     parser.add_argument('--user', '-u', default='dbuser',
                         help='Database user [default:dbuser]')
     parser.add_argument('--password', '-p', default='secret',
                         help='Database password [default:secret]')
-    parser.add_argument('--database', '-n', default='log_db',
-                        help='Database name [default:log_db]')
+    parser.add_argument('--database', '-n', default='logging',
+                        help='Database name [default:logging]')
+    parser.add_argument('--retries', '-r', default=3, type=int, help='number of times to retry initial database connection')
+    parser.add_argument('--backoff', '-b', default=2, type=int, help='start seconds to wait on db connection (doubles every try)')
     args = parser.parse_args()
 
-    mydb = mysql.connector.connect(
-        host=args.loghost,
-        user=args.user,
-        password=args.password,
-        database=args.database
-    )
+    mydb = pymysql.connect(host=args.loghost,
+                           user=args.user,
+                           password=args.password,
+                           db=args.database,
+                           charset='utf8mb4',
+                           cursorclass=pymysql.cursors.DictCursor)
 
-    create_table(mydb)
+    waited = 0
+    timeout = args.backoff
+    retries = args.retries
+    for i in range(1,retries):
+        try:
+            create_table(mydb)
+            break
+        except:
+            print(f"Database connection refused trial {i}/{retries}, now waiting {timeout} seconds ...")
+            sleep(timeout)
+            waited += timeout
+            timeout *= 2
+            continue
+    else:
+        print(f"No database connections after {retries} tries ({waited} seconds)")
+        exit(111)
 
     Handler = partial(LogHTTPRequestHandler, mydb=mydb, directory=args.directory)
 
-    with socketserver.TCPServer(("", args.port), Handler) as httpd:
-        print("serving at port", args.port)
+    with socketserver.TCPServer((args.host, args.port), Handler) as httpd:
+        print("serving at port {args.host}:{args.port}")
         httpd.serve_forever()

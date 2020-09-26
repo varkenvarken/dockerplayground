@@ -6,9 +6,11 @@ RUN python -m pip install falcon
 RUN python -m pip install SQLAlchemy
 RUN python -m pip install falcon-autocrud
 
+ENTRYPOINT ["python", "./objectstore.py", "-d", "mysql+pymysql://dbuser:secret@dbserver_entity/entity", "-r", "4"]
+
+HEALTHCHECK CMD ["curl", "--fail", "http://localhost:5555/"] 
+
 WORKDIR /usr/src/app
 
-COPY . .
-
-ENTRYPOINT ["python", "./objectstore.py", "-d", "mysql+pymysql://dbuser:secret@dbserver_entity/log_entity"]
+COPY objectstore/ .
 

@@ -14,6 +14,7 @@ services:
     depends_on:
       - dbserver_log
       - objectstore
+    restart: on-failure
 
 # note that we have not created any volumes yet so nothing is saved 
   dbserver_log:
@@ -40,6 +41,7 @@ services:
       - appnetwork
     depends_on:
       - dbserver_entity
+    restart: on-failure
 
 # our network is external which means it should exist already
 networks:

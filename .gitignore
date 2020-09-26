@@ -1,2 +1,4 @@
 /restapi/stuff.db
 /objectstore/stuff.db
+.*\/stuff.db
+/stuff.db
