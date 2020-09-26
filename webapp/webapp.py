@@ -76,6 +76,8 @@ if __name__ == '__main__':
     import http.server
     import socketserver
     from functools import partial
+    from sys import exit
+    from time import sleep
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', '-s', default='0.0.0.0',
