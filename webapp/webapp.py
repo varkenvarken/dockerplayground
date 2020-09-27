@@ -1,7 +1,12 @@
 from http.server import SimpleHTTPRequestHandler
 from http import HTTPStatus
+from urllib.parse import quote_plus, parse_qs, urlparse
 
 import pymysql.cursors
+
+from prometheus_client.registry import REGISTRY
+from prometheus_client.exposition import _bake_output
+
 
 def create_table(mydb):
     tablename = 'log'
@@ -21,6 +26,8 @@ def create_table(mydb):
             )")
 
 class LogHTTPRequestHandler(SimpleHTTPRequestHandler):
+
+    registry = REGISTRY
     
     def __init__(self, *args, mydb=None, **kwargs):
         self.mydb = mydb
@@ -45,8 +52,9 @@ class LogHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         print("GET", self.requestline)
+
         
-        if self.requestline.startswith('GET /status '):
+        if self.requestline.startswith('GET /accesslog '):
             mycursor = self.mydb.cursor()
             mycursor.execute("SELECT * FROM log ORDER BY id DESC LIMIT 20")
             result = mycursor.fetchall()
@@ -67,8 +75,35 @@ class LogHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.end_headers()
             self.wfile.write(bytes('I am healthy','utf-8'))
+        elif self.requestline.startswith('GET /metrics'):
+            # Prepare parameters
+            registry = self.registry
+            accept_header = self.headers.get('Accept')
+            params = parse_qs(urlparse(self.path).query)
+            # Bake output
+            status, header, output = _bake_output(registry, accept_header, params)
+            # Return output
+            self.send_response(int(status.split(' ')[0]))
+            self.send_header(*header)
+            self.end_headers()
+            self.wfile.write(output)
         else:
             super().do_GET()
+
+    @classmethod
+    def factory(cls, registry):
+        """Returns a dynamic MetricsHandler class tied
+           to the passed registry.
+        """
+        # This implementation relies on MetricsHandler.registry
+        #  (defined above and defaulted to REGISTRY).
+
+        # As we have unicode_literals, we need to create a str()
+        #  object for type().
+        cls_name = str(cls.__name__)
+        MyMetricsHandler = type(cls_name, (cls, object),
+                                {"registry": registry})
+        return MyMetricsHandler
 
 if __name__ == '__main__':
     import argparse
