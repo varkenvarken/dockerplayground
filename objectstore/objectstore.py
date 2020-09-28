@@ -1,32 +1,37 @@
 import falcon
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, Column, Integer, String, exc
+from falcon_autocrud.resource import CollectionResource, SingleResource
+
 
 class HealthResource:
+    """
+    A static resource to serve a Docker healthcheck.
+    """
     def on_get(self, req, resp):
         resp.status = falcon.HTTP_200
         resp.content_type = 'text/html'
         resp.body = b'I am healthy'
 
 
-
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, exc
-
 Base = declarative_base()
 
-class Employee(Base):
-    __tablename__ = 'employees'
-    id      = Column(Integer, primary_key=True)
-    name    = Column(String(50))
-    age     = Column(Integer)
+
+class Book(Base):
+    __tablename__ = 'books'
+    id     = Column(Integer, primary_key=True)
+    title  = Column(String(100))
+    author = Column(String(50))
+    isbn   = Column(String(15))
 
 
-from falcon_autocrud.resource import CollectionResource, SingleResource
+class BookCollectionResource(CollectionResource):
+    model = Book
 
-class EmployeeCollectionResource(CollectionResource):
-    model = Employee
 
-class EmployeeResource(SingleResource):
-    model = Employee
+class BookResource(SingleResource):
+    model = Book
+
 
 if __name__ == '__main__':
     import argparse
@@ -36,6 +41,7 @@ if __name__ == '__main__':
     from sqlalchemy import create_engine
     import falcon
     from falcon_autocrud.middleware import Middleware
+    from falcon_prometheus import PrometheusMiddleware
 
 
     parser = argparse.ArgumentParser()
@@ -67,13 +73,15 @@ if __name__ == '__main__':
         print(f"No database connections after {retries} tries ({waited} seconds)")
         exit(111)
 
+    prometheus = PrometheusMiddleware()
     app = falcon.API(
-        middleware=[Middleware()],
+        middleware=[Middleware(), prometheus],
     )
 
-    app.add_route('/employees', EmployeeCollectionResource(db_engine))
-    app.add_route('/employees/{id}', EmployeeResource(db_engine))
-    app.add_route('/', HealthResource())
+    app.add_route('/books', BookCollectionResource(db_engine))
+    app.add_route('/books/{id}', BookResource(db_engine))
+    app.add_route('/health', HealthResource())
+    app.add_route('/metrics', prometheus)
 
     with make_server('', args.port, app) as httpd:
         print(f"Serving on port {args.port} ...")
