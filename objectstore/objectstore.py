@@ -3,7 +3,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, String, exc
 from falcon_autocrud.resource import CollectionResource, SingleResource
 
-
 class HealthResource:
     """
     A static resource to serve a Docker healthcheck.
@@ -12,7 +11,6 @@ class HealthResource:
         resp.status = falcon.HTTP_200
         resp.content_type = 'text/html'
         resp.body = b'I am healthy'
-
 
 Base = declarative_base()
 
@@ -31,6 +29,33 @@ class BookCollectionResource(CollectionResource):
 
 class BookResource(SingleResource):
     model = Book
+
+# TODO this is NOT the way to do it
+class CORSComponent:
+    def process_response(self, req, resp, resource, req_succeeded):
+        resp.set_header('Access-Control-Allow-Origin', '*')
+
+        if (True  #req_succeeded
+#            and req.method in ('OPTIONS', 'GET', 'PATCH', 'POST', 'DELETE', 'PUT')
+#            and req.get_header('Access-Control-Request-Method')
+        ):
+            # NOTE(kgriffs): This is a CORS preflight request. Patch the
+            #   response accordingly.
+
+            allow = resp.get_header('Allow')
+            resp.delete_header('Allow')
+
+            allow_headers = req.get_header(
+                'Access-Control-Request-Headers',
+                default='*'
+            )
+
+            resp.set_headers((
+                ('Access-Control-Allow-Methods', 'GET, PATCH, POST, DELETE, PUT'),
+                ('Access-Control-Allow-Headers', allow_headers),
+                ('Access-Control-Max-Age', '86400'),  # 24 hours
+                ('Access-Control-Allow-Origin', '*'),
+            ))
 
 
 if __name__ == '__main__':
@@ -74,8 +99,8 @@ if __name__ == '__main__':
         exit(111)
 
     prometheus = PrometheusMiddleware()
-    app = falcon.API(
-        middleware=[Middleware(), prometheus],
+    app = falcon.API(  #does not work in falcon 2.0 cors_enable=True,   # see https://falcon.readthedocs.io/en/latest/api/cors.html
+        middleware=[CORSComponent(), Middleware(), prometheus],
     )
 
     app.add_route('/books', BookCollectionResource(db_engine))
