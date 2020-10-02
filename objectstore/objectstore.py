@@ -1,6 +1,7 @@
+from datetime import date,datetime
 import falcon
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, exc
+from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, exc
 from falcon_autocrud.resource import CollectionResource, SingleResource
 
 class HealthResource:
@@ -17,12 +18,20 @@ Base = declarative_base()
 
 class Book(Base):
     __tablename__ = 'books'
-    id     = Column(Integer, primary_key=True)
-    title  = Column(String(100))
-    author = Column(String(50))
-    isbn   = Column(String(15))
-
-
+    id          = Column(Integer, primary_key=True)
+    title       = Column(String(100))
+    author      = Column(String(50))
+    isbn        = Column(String(15))  # either 10 or 13
+    publisher   = Column(String(50))
+    published   = Column(Date(), nullable=True)  #default=date(1600,1,1))
+    value       = Column(Numeric(8,2), default=0)   # an estimate, currency is supposed to be EUR
+    created     = Column(DateTime(), default=datetime.now())
+    coverart    = Column(String(150)) # a URL
+    isamended   = Column(Boolean(), default=False)   # True is bot has amended any value
+    amended     = Column(DateTime(), default=datetime.now())
+    isedited    = Column(Boolean(), default=False)   # True if person has overruled bot amendation
+    edited      = Column(DateTime(), default=datetime.now())
+    
 class BookCollectionResource(CollectionResource):
     model = Book
 

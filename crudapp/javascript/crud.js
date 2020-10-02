@@ -4,7 +4,7 @@ $(document).ready(function() {
         {
         data: "id",
         title: "Id",
-        type: "readonly"
+        readonly:true, disabled:true, visible:false
         },
         {
         data: "author",
@@ -16,14 +16,81 @@ $(document).ready(function() {
         },
         {
         data: "isbn",
-        title: "ISBN"
+        title: "ISBN", pattern:"(\\d{10})|(\\d{13})"
+        },
+        {
+        data: "publisher",
+        title: "Publisher"
+        },
+        {
+        data: "published",
+        title: "Published", datepicker: { timepicker: false, dateFormat : "yy-mm-dd"}
+        },
+        {
+        data: "value",
+        title: "Value"
+        },
+        {
+        data: "created",
+        title: "Created", disabled:true, visible:false
+        },
+        {
+        data: "coverart",
+        title: "Cover"
+        },
+        {
+        data: "isamended",
+        title: "Amended", disabled:true, visible:false
+        },
+        {
+        data: "amended",
+        title: "Date", disabled:true, visible:false
+        },
+        {
+        data: "isedited",
+        title: "Edited", disabled:true, visible:false
+        },
+        {
+        data: "edited",
+        title: "Date", disabled:true, visible:false
         }
     ];
 
     var myTable;
 
-    var restendpoint = 'http://lvh.me:5555/books';
+    // link to same server on a different port
+    var restendpoint = window.location.protocol + '//' + window.location.hostname + ':5555' + '/books';
 
+    function validate_datetime(v){
+        var dt = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/;
+        if(v == "" || !dt.test(v)) { return new Date().toISOString().replace(/\.\d{3}/,""); }
+        return v;
+    }
+
+    function validate_date(v){ // allows for an empty date
+        var dt = /\d{4}-\d{2}-\d{2}/;
+        if(v == "" ){ return null; }
+        if(!dt.test(v)) { return new Date().toISOString().replace(/T.*/,""); }
+        return v;
+    }
+    
+    function validate(rowdata){
+        
+        // force dates into format falcon_autocrud imposes
+        rowdata.published = validate_date(rowdata.published);
+        rowdata.created = validate_datetime(rowdata.created);
+        rowdata.amended = validate_datetime(rowdata.amended);
+        rowdata.edited = validate_datetime(rowdata.edited);
+
+        rowdata.isamended = Boolean(rowdata.isamended);
+        rowdata.isedited = Boolean(rowdata.isedited);
+        rowdata.value = Number(rowdata.value);
+
+        console.log(rowdata);
+        
+        return rowdata;
+    }
+    
     myTable = $('#example').DataTable({
         "sPaginationType": "full_numbers",
         ajax: {
@@ -61,7 +128,7 @@ $(document).ready(function() {
             $.ajax({
                 url: restendpoint,
                 type: 'POST',
-                data: JSON.stringify(rowdata),
+                data: JSON.stringify(validate(rowdata)),
                 contentType: "application/json",
                 success: function(data, status, xhr){ return success(data.data, status, xhr)},
                 error: error
@@ -78,10 +145,12 @@ $(document).ready(function() {
             });
         },
         onEditRow: function(datatable, rowdata, success, error) {
+            rowdata.isedited = true;
+            rowdata.edited = new Date().toISOString().replace(/\.\d{3}/,"");
             $.ajax({
                 url: restendpoint+"/"+rowdata.id,
                 type: 'PUT',
-                data: JSON.stringify(rowdata),
+                data: JSON.stringify(validate(rowdata)),
                 contentType: "application/json",
                 success: function(data, status, xhr){ return success(data.data, status, xhr)},
                 error: error
