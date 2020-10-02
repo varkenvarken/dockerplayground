@@ -8,11 +8,11 @@ $(document).ready(function() {
         },
         {
         data: "author",
-        title: "Author"
+        title: "Author", width:"20%"
         },
         {
         data: "title",
-        title: "Title"
+        title: "Title", width:"30%"
         },
         {
         data: "isbn",
@@ -24,7 +24,7 @@ $(document).ready(function() {
         },
         {
         data: "published",
-        title: "Published", datepicker: { timepicker: false, dateFormat : "yy-mm-dd"}
+        title: "Published", datepicker: { timepicker: false, dateFormat : "yy-mm-dd", changeYear: true, changeMonth: true}
         },
         {
         data: "value",
