@@ -1,5 +1,9 @@
 $(document).ready(function() {
 
+    // link to same server on a different port
+    var restendpointbooks = window.location.protocol + '//' + window.location.hostname + ':5555' + '/books';
+    var restendpointimages = window.location.protocol + '//' + window.location.hostname + ':5555' + '/images';
+
     var columnDefs = [
         {
         data: "id",
@@ -36,7 +40,11 @@ $(document).ready(function() {
         },
         {
         data: "coverart",
-        title: "Cover"
+        title: "Cover",
+        render: function (data, type, row, meta) {
+                    if(data == "") { return data; }
+                    return "<img class=\"coverart\" src=\""+restendpointimages+"/"+data+"\">";
+                }
         },
         {
         data: "isamended",
@@ -58,8 +66,6 @@ $(document).ready(function() {
 
     var myTable;
 
-    // link to same server on a different port
-    var restendpoint = window.location.protocol + '//' + window.location.hostname + ':5555' + '/books';
 
     function validate_datetime(v){
         var dt = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/;
@@ -94,7 +100,7 @@ $(document).ready(function() {
     myTable = $('#example').DataTable({
         "sPaginationType": "full_numbers",
         ajax: {
-            url : restendpoint,
+            url : restendpointbooks,
             dataSrc : 'data',
             cache: true
         },
@@ -126,7 +132,7 @@ $(document).ready(function() {
         onAddRow: function(datatable, rowdata, success, error) {
             delete rowdata.id;
             $.ajax({
-                url: restendpoint,
+                url: restendpointbooks,
                 type: 'POST',
                 data: JSON.stringify(validate(rowdata)),
                 contentType: "application/json",
@@ -136,7 +142,7 @@ $(document).ready(function() {
         },
         onDeleteRow: function(datatable, rowdata, success, error) {
             $.ajax({
-                url: restendpoint+"/"+rowdata.id,
+                url: restendpointbooks+"/"+rowdata.id,
                 type: 'DELETE',
                 data: JSON.stringify(rowdata),
                 contentType: "application/json",
@@ -148,7 +154,7 @@ $(document).ready(function() {
             rowdata.isedited = true;
             rowdata.edited = new Date().toISOString().replace(/\.\d{3}/,"");
             $.ajax({
-                url: restendpoint+"/"+rowdata.id,
+                url: restendpointbooks+"/"+rowdata.id,
                 type: 'PUT',
                 data: JSON.stringify(validate(rowdata)),
                 contentType: "application/json",
