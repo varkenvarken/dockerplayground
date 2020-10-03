@@ -9,7 +9,7 @@ RUN python -m pip install falcon-prometheus
 
 ENTRYPOINT ["python", "./objectstore.py", "-d", "mysql+pymysql://dbuser:secret@dbserver_entity/entity", "-r", "4"]
 
-HEALTHCHECK CMD ["curl", "--fail", "http://localhost:5555/"] 
+HEALTHCHECK CMD ["curl", "--fail", "http://localhost:5555/health"] 
 
 WORKDIR /usr/src/app
 
