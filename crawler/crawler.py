@@ -1,4 +1,5 @@
 import requests
+import json
 
 def getbookstoupdate(endpoint):
     params = {'isedited':0, 'isamended':0}
@@ -6,11 +7,25 @@ def getbookstoupdate(endpoint):
     return response.json()
 
 def getbookdatafromopenlibrary(isbn):
+    print(isbn)
     response = requests.get(f"https://openlibrary.org/isbn/{isbn}.json")
     print(response.status_code)
     if response.status_code == 404: return None
     return response.json()
-    
+
+def getauthordatafromopenlibrary(authorid):
+    print(authorid)
+    response = requests.get(f"https://openlibrary.org/{authorid}.json")
+    print(response.status_code)
+    if response.status_code == 404: return None
+    return response.json()
+
+def updatebook(endpoint, bookid, data):
+    print(data)
+    response = requests.put(f"{endpoint}/books/{bookid}", json=data)
+    print(response)
+    return response.json()
+
 if __name__ == '__main__':
     import argparse
     from time import sleep
@@ -29,7 +44,15 @@ if __name__ == '__main__':
         # for the healthcheck we might touch a file?
         books = getbookstoupdate(args.restserver)
         for book in books['data']:
-            print(book['isbn'])
-            print(getbookdatafromopenlibrary(book['isbn']))
+            if book['isbn'] is not None and book['isbn'] != "":
+                data = getbookdatafromopenlibrary(book['isbn'])
+                print(data)
+                if data is not None:
+                    authordata = getauthordatafromopenlibrary(data['authors'][0]['key'])
+                    print(authordata)
+                    book['author'] = authordata['name']
+                    book['publisher'] = data['publishers'][0]
+                    book['title'] = data[ 'title']
+                    print(updatebook(args.restserver, book['id'], book))
         sleep(10)   # or we could run everything from cron?
 
