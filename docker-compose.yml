@@ -1,6 +1,12 @@
 version: '3.7'
 
-# note that there are no health checks yet so some containers will fail because databases are slow to start up
+# define secrets
+secrets:
+    mysql-root:
+        file: mysqlrootpassword.txt
+
+# define services. note that there is no need to specify build options
+# because the names of the services match our subdirectories
 services:
 
   dbserver_entity:
@@ -8,15 +14,27 @@ services:
     # no exposed ports
     networks:
       - appnetwork
+    # use a secret
     environment:
-      - MYSQL_ROOT_PASSWORD=secret
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root
+    # give access to a secret
+    secrets:
+      - mysql-root
+    restart: on-failure
 
   objectstore:
     image: objectstore
     ports:
+    # needs to be accessible from the browser as long as we don't have a reverse proxy
       - 5555:5555
     networks:
       - appnetwork
+    # use a secret
+    environment:
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root
+    # give access to a secret
+    secrets:
+      - mysql-root
     depends_on:
       - dbserver_entity
     restart: on-failure
@@ -24,6 +42,7 @@ services:
   crudapp:
     image: crudapp
     ports:
+    # needs to be accessible from the browser, this is our main entry point
       - 8000:8000
     networks:
       - appnetwork
