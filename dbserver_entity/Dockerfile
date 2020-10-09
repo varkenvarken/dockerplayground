@@ -13,4 +13,4 @@ COPY dbserver_entity/sql-scripts/ /docker-entrypoint-initdb.d/
 
 COPY common/dbping.py .
 
-HEALTHCHECK  CMD ["python3", "./dbping.py", "-s", "localhost", "-d", "$$MYSQL_DATABASE"] 
+HEALTHCHECK CMD ["python3", "./dbping.py"] 

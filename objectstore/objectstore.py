@@ -94,18 +94,18 @@ if __name__ == '__main__':
 
     password = environ['MYSQL_ROOT_PASSWORD'] if 'MYSQL_ROOT_PASSWORD' in environ else None
     database = environ['MYSQL_DATABASE'] if 'MYSQL_DATABASE' in environ else 'default'
+    user = environ['MYSQL_USER'] if 'MYSQL_USER' in environ else 'default'
+    server = environ['MYSQL_SERVER'] if 'MYSQL_SERVER' in environ else 'localhost'
     if password is None and 'MYSQL_ROOT_PASSWORD_FILE' in environ:
         with open(environ['MYSQL_ROOT_PASSWORD_FILE']) as f:
             password = f.read().strip()
-    connection = f"mysql+pymysql://dbuser:{password}@dbserver_entity/{database}"
+    connection = f"mysql+pymysql://{user}:{password}@{server}/{database}"
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--retries', '-r', default=3, type=int, help='number of times to retry initial database connection')
     parser.add_argument('--backoff', '-b', default=2, type=int, help='start seconds to wait on db connection (doubles every try)')
     parser.add_argument('--port', '-p', default=5555, type=int, help='application port')
     args = parser.parse_args()
-
-    print(environ, connection, args)
 
     # this does not open a connection (yet)
     db_engine = create_engine(connection, pool_pre_ping=True)       # 'sqlite:////absolute/path/to/foo.db'
