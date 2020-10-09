@@ -1,7 +1,7 @@
 from datetime import date,datetime
 import falcon
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, exc
+from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, LargeBinary, exc
 from falcon_autocrud.resource import CollectionResource, SingleResource
 
 class HealthResource:
@@ -38,6 +38,20 @@ class BookCollectionResource(CollectionResource):
 
 class BookResource(SingleResource):
     model = Book
+
+class Image(Base):
+    __tablename__ = 'images'
+    id         = Column(Integer, primary_key=True)
+    data       = Column(LargeBinary, nullable=False)
+    type       = Column(String(10), nullable=True)   # jpg, png, ... might be null or empty
+    annotation = Column(String(100), nullable=True)   # whatever you like
+    created    = Column(DateTime(), default=datetime.now())
+
+class ImageCollectionResource(CollectionResource):
+    model = Image
+
+class ImageResource(SingleResource):
+    model = Image
 
 # TODO this is NOT the way to do it
 class CORSComponent:
@@ -114,6 +128,8 @@ if __name__ == '__main__':
 
     app.add_route('/books', BookCollectionResource(db_engine))
     app.add_route('/books/{id}', BookResource(db_engine))
+    app.add_route('/images', ImageCollectionResource(db_engine))
+    app.add_route('/images/{id}', ImageResource(db_engine))
     app.add_route('/health', HealthResource())
     app.add_route('/metrics', prometheus)
 
