@@ -20,6 +20,8 @@ services:
     # give access to a secret
     secrets:
       - mysql-root
+    volumes:
+      - "data:/var/lib/mysql"
     restart: on-failure
     build:
       context: .
@@ -63,3 +65,5 @@ services:
 networks:
   appnetwork:
 
+volumes:
+    data:
