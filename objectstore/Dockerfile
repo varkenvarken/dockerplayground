@@ -7,8 +7,8 @@ RUN python -m pip install SQLAlchemy
 RUN python -m pip install falcon-autocrud
 RUN python -m pip install falcon-prometheus
 
-# pass password via environment variable (if non-empty) or file (passed as a secret)
-ENTRYPOINT ["python", "./objectstore.py", "-d", "mysql+pymysql://dbuser:$${MYSQL_ROOT_PASSWORD:-`cat $$MYSQL_ROOT_PASSWORD_FILE`}@dbserver_entity/entity", "-r", "4"]
+# parameters for database connectivity are stored in environment variables or secrets
+ENTRYPOINT ["python", "./objectstore.py", "-r", "4"]
 
 HEALTHCHECK CMD ["curl", "--fail", "http://localhost:5555/health"] 
 

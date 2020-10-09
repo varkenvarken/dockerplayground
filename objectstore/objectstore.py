@@ -86,23 +86,29 @@ if __name__ == '__main__':
     from time import sleep
     from wsgiref.simple_server import make_server
     from sys import exit
+    from os import environ
     from sqlalchemy import create_engine
     import falcon
     from falcon_autocrud.middleware import Middleware
     from falcon_prometheus import PrometheusMiddleware
 
+    password = environ['MYSQL_ROOT_PASSWORD'] if 'MYSQL_ROOT_PASSWORD' in environ else None
+    database = environ['MYSQL_DATABASE'] if 'MYSQL_DATABASE' in environ else 'default'
+    if password is None and 'MYSQL_ROOT_PASSWORD_FILE' in environ:
+        with open(environ['MYSQL_ROOT_PASSWORD_FILE']) as f:
+            password = f.read().strip()
+    connection = f"mysql+pymysql://dbuser:{password}@dbserver_entity/{database}"
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--database', '-d', default='sqlite:///stuff.db',
-                        help='Specify alternative directory '
-                        '[default: sqlite:///stuff.db]')
     parser.add_argument('--retries', '-r', default=3, type=int, help='number of times to retry initial database connection')
     parser.add_argument('--backoff', '-b', default=2, type=int, help='start seconds to wait on db connection (doubles every try)')
     parser.add_argument('--port', '-p', default=5555, type=int, help='application port')
     args = parser.parse_args()
 
+    print(environ, connection, args)
+
     # this does not open a connection (yet)
-    db_engine = create_engine(args.database, pool_pre_ping=True)       # 'sqlite:////absolute/path/to/foo.db'
+    db_engine = create_engine(connection, pool_pre_ping=True)       # 'sqlite:////absolute/path/to/foo.db'
 
     waited = 0
     timeout = args.backoff

@@ -5,8 +5,7 @@ secrets:
     mysql-root:
         file: mysqlrootpassword.txt
 
-# define services. note that there is no need to specify build options
-# because the names of the services match our subdirectories
+# define services (we pass .env to have the same environment vars inside the compose file as in the containers
 services:
 
   dbserver_entity:
@@ -14,13 +13,17 @@ services:
     # no exposed ports
     networks:
       - appnetwork
-    # use a secret
+    # use a secret (and the database name is just passed on from the .env file)
     environment:
       - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root
+    env_file: .env
     # give access to a secret
     secrets:
       - mysql-root
     restart: on-failure
+    build:
+      context: .
+      dockerfile: dbserver_entity/Dockerfile
 
   objectstore:
     image: objectstore
@@ -29,15 +32,19 @@ services:
       - 5555:5555
     networks:
       - appnetwork
-    # use a secret
+    # use a secret (and the database name is just passed on from the .env file)
     environment:
       - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root
+    env_file: .env
     # give access to a secret
     secrets:
       - mysql-root
     depends_on:
       - dbserver_entity
     restart: on-failure
+    build:
+      context: .
+      dockerfile: objectstore/Dockerfile
 
   crudapp:
     image: crudapp
@@ -49,6 +56,9 @@ services:
     depends_on:
       - objectstore
     restart: on-failure
+    build:
+      context: .
+      dockerfile: crudapp/Dockerfile
 
 networks:
   appnetwork:

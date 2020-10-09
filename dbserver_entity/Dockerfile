@@ -4,7 +4,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
 RUN python3 -m pip install PyMySQL
 RUN python3 -m pip install PyMySQL[rsa]
 
-ENV MYSQL_DATABASE entity
+# default database, can be replaced in docker-compose
+ENV MYSQL_DATABASE default
 
 WORKDIR /usr/src/app
 
@@ -12,4 +13,4 @@ COPY dbserver_entity/sql-scripts/ /docker-entrypoint-initdb.d/
 
 COPY common/dbping.py .
 
-HEALTHCHECK  CMD ["python3", "./dbping.py", "-s", "localhost", "-d", "entity"] 
+HEALTHCHECK  CMD ["python3", "./dbping.py", "-s", "localhost", "-d", "$$MYSQL_DATABASE"] 
