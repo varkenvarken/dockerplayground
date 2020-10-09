@@ -20,6 +20,13 @@ def getauthordatafromopenlibrary(authorid):
     if response.status_code == 404: return None
     return response.json()
 
+def getcoverfromopenlibrary(coverid):
+    print(coverid)
+    response = requests.get(f"https://covers.openlibrary.org/b/id/{coverid}-L.jpg")
+    print(response.status_code)
+    if response.status_code == 404: return None
+    return response
+
 def updatebook(endpoint, bookid, data):
     print(data)
     response = requests.put(f"{endpoint}/books/{bookid}", json=data)
@@ -54,5 +61,9 @@ if __name__ == '__main__':
                     book['publisher'] = data['publishers'][0]
                     book['title'] = data[ 'title']
                     print(updatebook(args.restserver, book['id'], book))
+                    r = getcoverfromopenlibrary(data['covers'][0])
+                    print('response',r)
+                    with open('test.jpg','wb') as f:
+                        f.write(r.content)
         sleep(10)   # or we could run everything from cron?
 
