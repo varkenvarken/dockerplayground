@@ -1,8 +1,36 @@
+import sys
 from datetime import date,datetime
+from base64 import b64decode,b64encode
 import falcon
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, LargeBinary, exc
 from falcon_autocrud.resource import CollectionResource, SingleResource
+
+def convert2b64(ob):
+    for k,v in ob.items():
+        if type(v) == bytes:
+            ob[k] = str(b64encode(v),'UTF-8')
+        elif type(v) == dict:
+            ob[k] = convert2b64(v)
+        elif type(v) == list:
+            for i,el in enumerate(v):
+                if type(el) == dict:
+                    v[i] = convert2b64(el)
+    return ob
+
+def firstbytes(ob):
+    for k,v in ob.items():
+        if type(v) == bytes:
+            return v
+        elif type(v) == dict:
+            b = firstbytes(v)
+            if b is not None: return b
+        elif type(v) == list:
+            for i,el in enumerate(v):
+                if type(el) == dict:
+                    b = firstbytes(el)
+                    if b is not None: return b
+    return None
 
 class HealthResource:
     """
@@ -19,6 +47,7 @@ Base = declarative_base()
 class Book(Base):
     __tablename__ = 'books'
     id          = Column(Integer, primary_key=True)
+    # TODO add owner
     title       = Column(String(100))
     author      = Column(String(50))
     isbn        = Column(String(15))  # either 10 or 13
@@ -49,6 +78,17 @@ class Image(Base):
 
 class ImageCollectionResource(CollectionResource):
     model = Image
+    
+    def before_post(self, req, resp, db_session, resource, *args, **kwargs):
+        # Anything you do with db_session is in the same transaction as the
+        # resource creation.  Resource is the new resource not yet added to the
+        # database.
+        self.original_data = resource.data
+        resource.data = b64decode(bytes(resource.data,'UTF-8'))
+        
+    def after_post(self, req, resp, new, *args, **kwargs):
+        # 'new' is the created SQLAlchemy instance
+        new.data = self.original_data
 
 class ImageResource(SingleResource):
     model = Image
@@ -80,6 +120,22 @@ class CORSComponent:
                 ('Access-Control-Allow-Origin', '*'),
             ))
 
+
+class JSONBinary:
+    def process_response(self, req, resp, resource, params):
+        #print(req.context, file=sys.stderr)
+        if 'result' in req.context:
+            req.context['result'] = convert2b64(req.context['result'])
+        #print(req.context, file=sys.stderr)
+
+class RawData:
+    def process_response(self, req, resp, resource, params):
+        print('query_string', req.query_string, flush=True)
+        if req.query_string=='raw':
+            try:
+                resp.body = b64decode(bytes(req.context['result']['data']['data'],'UTF-8'))
+            except KeyError:
+                pass
 
 if __name__ == '__main__':
     import argparse
@@ -129,7 +185,7 @@ if __name__ == '__main__':
 
     prometheus = PrometheusMiddleware()
     app = falcon.API(  #does not work in falcon 2.0 cors_enable=True,   # see https://falcon.readthedocs.io/en/latest/api/cors.html
-        middleware=[CORSComponent(), Middleware(), prometheus],
+        middleware=[CORSComponent(), RawData(), Middleware(), JSONBinary(), prometheus],
     )
 
     app.add_route('/books', BookCollectionResource(db_engine))
@@ -140,5 +196,5 @@ if __name__ == '__main__':
     app.add_route('/metrics', prometheus)
 
     with make_server('', args.port, app) as httpd:
-        print(f"Serving on port {args.port} ...")
+        print(f"Serving on port {args.port} ...", file=sys.stderr)
         httpd.serve_forever()
