@@ -9,7 +9,7 @@ if __name__ == '__main__':
     if password is None and 'MYSQL_ROOT_PASSWORD_FILE' in environ:
         with open(environ['MYSQL_ROOT_PASSWORD_FILE']) as f:
             password = f.read().strip()
-    
+
     # Connect to the database
     connection = pymysql.connect(host=server,
                                  user=user,
