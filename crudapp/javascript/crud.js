@@ -43,7 +43,7 @@ $(document).ready(function() {
         title: "Cover",
         render: function (data, type, row, meta) {
                     if(data == "") { return data; }
-                    return "<img class=\"coverart\" height=48px src=\""+restendpointimages+"/"+data+"\">";
+                    return "<img class=\"coverart\" src=\""+restendpointimages+"/"+data+"?raw\">";
                 }
         },
         {
