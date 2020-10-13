@@ -8,6 +8,22 @@ secrets:
 # define services (we pass .env to have the same environment vars inside the compose file as in the containers
 services:
 
+  reverse-proxy:
+    # The official v2 Traefik docker image
+    image: traefik:latest
+    # Enables the web UI and tells Traefik to listen to docker
+    command: --api.insecure=true --providers.docker --log.level=INFO --entrypoints.web.address=:80
+    networks:
+      - appnetwork
+    ports:
+      # The HTTP port
+      - "80:80"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+
   dbserver_entity:
     image: dbserver_entity
     # no exposed ports
@@ -26,12 +42,14 @@ services:
     build:
       context: .
       dockerfile: dbserver_entity/Dockerfile
+    labels:
+      - "traefik.enable=false"
 
   objectstore:
     image: objectstore
-    ports:
-    # needs to be accessible from the browser as long as we don't have a reverse proxy
-      - 5555:5555
+    # no outward exposed ports, traefik will deal with that
+    #ports:
+    #  - 5555:5555
     networks:
       - appnetwork
     # use a secret (and the database name is just passed on from the .env file)
@@ -47,12 +65,22 @@ services:
     build:
       context: .
       dockerfile: objectstore/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.objectstore.entrypoints=web"
+      - "traefik.http.routers.objectstore.rule=Host(`server.michelanders.nl`) && PathPrefix(`/objects`)"
+      - "traefik.backend=objectstore"
+      - "traefik.http.routers.objectstore.middlewares=objectprefix"
+      - "traefik.http.middlewares.objectprefix.stripprefix.prefixes=/objects"
+      - "traefik.http.services.objectstore.loadbalancer.server.port=5555"
+    # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
+    #  - "traefik.docker.network=appnetwork"
 
   crudapp:
     image: crudapp
-    ports:
-    # needs to be accessible from the browser, this is our main entry point
-      - 8000:8000
+    # no outward exposed ports, traefik will deal with that
+    #ports:
+    #  - 8000:8000
     networks:
       - appnetwork
     depends_on:
@@ -61,6 +89,16 @@ services:
     build:
       context: .
       dockerfile: crudapp/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.crudapp.entrypoints=web"
+      - "traefik.http.routers.crudapp.rule=Host(`server.michelanders.nl`) && PathPrefix(`/books`)"
+      - "traefik.backend=crudapp"
+      - "traefik.http.routers.crudapp.middlewares=bookprefix"
+      - "traefik.http.middlewares.bookprefix.stripprefix.prefixes=/books"
+      - "traefik.http.services.crudapp.loadbalancer.server.port=8000"
+    # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
+    #  - "traefik.docker.network=appnetwork"
 
 networks:
   appnetwork:
