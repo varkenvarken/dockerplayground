@@ -1,8 +1,8 @@
 $(document).ready(function() {
 
     // link to same server on a different port
-    var restendpointbooks = window.location.protocol + '//' + window.location.hostname + ':5555' + '/books';
-    var restendpointimages = window.location.protocol + '//' + window.location.hostname + ':5555' + '/images';
+    var restendpointbooks = window.location.protocol + '//' + window.location.hostname + '/objects/books';
+    var restendpointimages = window.location.protocol + '//' + window.location.hostname + '/objects/images';
 
     var columnDefs = [
         {
