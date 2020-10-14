@@ -9,20 +9,29 @@ secrets:
 services:
 
   reverse-proxy:
-    # The official v2 Traefik docker image
-    image: traefik:latest
+    # Based on the official v2 Traefik docker image
+    image: reverse-proxy
     # Enables the web UI and tells Traefik to listen to docker
-    command: --api.insecure=true --providers.docker --log.level=INFO --entrypoints.web.address=:80
+    command:
+      - --api.insecure=true
+      - --providers.docker
+      - --log.level=INFO
+      - --entryPoints.websecure.address=:443
+      - --providers.file.directory=/opt/traefik/certs
     networks:
       - appnetwork
     ports:
       # The HTTP port
-      - "80:80"
+      - "443:443"
       # The Web UI (enabled by --api.insecure=true)
       - "8080:8080"
     volumes:
       # So that Traefik can listen to the Docker events
       - /var/run/docker.sock:/var/run/docker.sock
+    build:
+      context: .
+      dockerfile: reverse-proxy/Dockerfile
+    restart: on-failure
 
   dbserver_entity:
     image: dbserver_entity
@@ -67,7 +76,8 @@ services:
       dockerfile: objectstore/Dockerfile
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.objectstore.entrypoints=web"
+      - "traefik.http.routers.objectstore.entrypoints=websecure"
+      - "traefik.http.routers.objectstore.tls=true"
       - "traefik.http.routers.objectstore.rule=Host(`server.michelanders.nl`) && PathPrefix(`/objects`)"
       - "traefik.backend=objectstore"
       - "traefik.http.routers.objectstore.middlewares=objectprefix"
@@ -91,7 +101,8 @@ services:
       dockerfile: crudapp/Dockerfile
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.crudapp.entrypoints=web"
+      - "traefik.http.routers.crudapp.entrypoints=websecure"
+      - "traefik.http.routers.crudapp.tls=true"
       - "traefik.http.routers.crudapp.rule=Host(`server.michelanders.nl`) && PathPrefix(`/books`)"
       - "traefik.backend=crudapp"
       - "traefik.http.routers.crudapp.middlewares=bookprefix"
