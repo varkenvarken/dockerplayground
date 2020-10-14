@@ -6,6 +6,7 @@ General notes are being documented on [a separate website](https://varkenvarken.
 ![Docker Image CI](https://github.com/varkenvarken/dockerplayground/workflows/Docker%20Image%20CI/badge.svg)
 ![Pylint Basic](https://github.com/varkenvarken/dockerplayground/workflows/Pylint%20Basic/badge.svg)
 ![Flake8](https://github.com/varkenvarken/dockerplayground/workflows/Flake8/badge.svg)
+![CodeQL](https://github.com/varkenvarken/dockerplayground/workflows/CodeQL/badge.svg)
 
 # current status
 ![](https://raw.githubusercontent.com/varkenvarken/dockerplayground/master/docs/illustrations/General%20Web%20Application%20Architecture%20-%20Status%20202010013.svg)
