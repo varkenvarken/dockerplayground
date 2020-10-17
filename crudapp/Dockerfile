@@ -1,8 +1,11 @@
 FROM python:3
 
-ENTRYPOINT ["python", "-m", "http.server"]
+RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install requests
 
-HEALTHCHECK CMD ["curl", "--fail", "http://localhost:8000/"] 
+ENTRYPOINT ["python", "server.py", "-p", "8000"]
+
+#HEALTHCHECK CMD ["curl", "--fail", "http://localhost:8000/"] 
 
 WORKDIR /usr/src/app
 

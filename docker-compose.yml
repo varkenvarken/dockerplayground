@@ -13,9 +13,10 @@ services:
     image: reverse-proxy
     # Enables the web UI and tells Traefik to listen to docker
     command:
+      - --log.level=DEBUG
       - --api.insecure=true
       - --providers.docker
-      - --log.level=INFO
+    #  - --log.level=INFO
       - --entryPoints.websecure.address=:443
       - --providers.file.directory=/opt/traefik/certs
     networks:
@@ -109,7 +110,7 @@ services:
       - "traefik.http.middlewares.bookprefix.stripprefix.prefixes=/books"
       - "traefik.http.services.crudapp.loadbalancer.server.port=8000"
     # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
-    #  - "traefik.docker.network=appnetwork"
+      - "traefik.docker.network=dockerplayground_appnetwork"
 
   authserver:
     image: authserver
