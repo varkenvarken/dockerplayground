@@ -29,10 +29,6 @@ class Session(Base):
 
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
-    def do_HEAD(self):
-        print('do_HEAD')
-        do_POST(self)
-
     def do_POST(self):
 
         global DBSession
@@ -105,7 +101,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             try:
                 self.wfile.write(content)
             except Exception as e:
-                print(e, flush=true)
+                print(e, flush=True)
             print('done', flush=True)
             self.wfile.flush()
         else:
