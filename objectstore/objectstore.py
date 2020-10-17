@@ -5,7 +5,7 @@ import falcon
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, LargeBinary
 from falcon_autocrud.resource import CollectionResource, SingleResource
-
+import requests
 
 def convert2b64(ob):
     """
@@ -60,6 +60,22 @@ class HealthResource:
         resp.body = b'I am healthy'
 
 
+class LoginResource:
+    """
+    A resource to identify and authenticate people.
+    """
+    def on_get(self, req, resp):
+        if req.cookies:
+            print('cookies', req.cookies, flush=True)
+        if req.params:
+            print('params', req.params)
+        
+        raise falcon.HTTPNotFound('/auth/login')
+
+        resp.set_cookie('session', 'oink')
+        raise falcon.HTTPNotFound('/')
+
+
 Base = declarative_base()
 
 
@@ -81,9 +97,20 @@ class Book(Base):
     edited      = Column(DateTime(), default=datetime.now())
 
 
+from falcon import version
+
 class BookCollectionResource(CollectionResource):
     model = Book
 
+    def on_get(self, req, resp):
+        if req.cookies and 'session' in req.cookies:
+            print('cookies', req.cookies, flush=True)
+            r = requests.post('http://authserver:8005/verifysession', data = {'sessionid':req.cookies['session']})
+            print(r, flush=True)
+        else:
+            raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+        super().on_get(req, resp)
+            
 
 class BookResource(SingleResource):
     model = Book
@@ -238,7 +265,8 @@ if __name__ == '__main__':
     app.add_route('/images/{id}', ImageResource(db_engine))
     app.add_route('/health', HealthResource())
     app.add_route('/metrics', prometheus)
-
+    app.add_route('/login', LoginResource())
+    
     with make_server('', args.port, app) as httpd:
         print(f"Serving on port {args.port} ...", file=sys.stderr)
         httpd.serve_forever()

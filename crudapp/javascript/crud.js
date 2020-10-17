@@ -1,8 +1,17 @@
 $(document).ready(function() {
 
+    
+    $.ajaxSetup({
+        xhrFields: {
+            withCredentials: true
+        }
+    });
+
     // link to same server on a different port
-    var restendpointbooks = window.location.protocol + '//' + window.location.hostname + '/objects/books';
-    var restendpointimages = window.location.protocol + '//' + window.location.hostname + '/objects/images';
+    // var restendpointbooks = window.location.protocol + '//' + window.location.hostname + '/objects/books';
+    // var restendpointimages = window.location.protocol + '//' + window.location.hostname + '/objects/images';
+    var restendpointbooks = '/objects/books';
+    var restendpointimages = '/objects/images';
 
     var columnDefs = [
         {

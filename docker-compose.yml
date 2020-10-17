@@ -111,6 +111,27 @@ services:
     # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
     #  - "traefik.docker.network=appnetwork"
 
+  authserver:
+    image: authserver
+    # no outward exposed ports, traefik will deal with that
+    #ports:
+    #  - 8005:8005
+    networks:
+      - appnetwork
+    restart: on-failure
+    build:
+      context: .
+      dockerfile: authserver/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authserver.entrypoints=websecure"
+      - "traefik.http.routers.authserver.tls=true"
+      - "traefik.http.routers.authserver.rule=Host(`server.michelanders.nl`) && PathPrefix(`/auth`)"
+      - "traefik.backend=authserver"
+      - "traefik.http.routers.authserver.middlewares=authprefix"
+      - "traefik.http.middlewares.authprefix.stripprefix.prefixes=/auth"
+      - "traefik.http.services.authserver.loadbalancer.server.port=8005"
+
 networks:
   appnetwork:
 
