@@ -1,3 +1,25 @@
+#  server.py, an AAA server
+#
+#  part of https://github.com/varkenvarken/dockerplayground
+#
+#  (c) 2020 Michel Anders (varkenvarken)
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+
+
 from http.server import BaseHTTPRequestHandler
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -5,20 +27,44 @@ import urllib
 import sys
 from datetime import datetime
 from uuid import uuid4 as guid
+
+from hashlib import pbkdf2_hmac
+from hmac import compare_digest
+from os import urandom
+
+from traceback import print_exc
+
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, Date, DateTime, Boolean
+from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship, sessionmaker
 
+
+def newpassword(password):
+    salt = urandom(16)
+    dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
+    print(f"{password} + {salt.hex()} -> >{salt.hex() + dk.hex()}<")
+    return salt.hex() + dk.hex()
+
+
+def checkpassword(password, reference):
+    salt = bytes.fromhex(reference[:32])
+    dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
+    print(f"{password} + {salt.hex()} -> >{salt.hex() + dk.hex()}< == >{reference}<")
+    return compare_digest(salt.hex() + dk.hex(), reference)
+
+
 Base = declarative_base()
+
 
 class User(Base):
     __tablename__ = 'user'
     id          = Column(Integer, primary_key=True)
     email       = Column(String(100))
-    password    = Column(String(50))
+    password    = Column(String(100))
     created     = Column(DateTime(), default=datetime.now())
     active      = Column(Boolean(), default=True)
     accessed    = Column(DateTime(), default=datetime.now())
+
 
 class Session(Base):
     __tablename__ = 'session'
@@ -27,88 +73,128 @@ class Session(Base):
     userid   = Column(Integer, ForeignKey('user.id'))
     user = relationship(User)
 
+
+# we catch exceptions in this method ourselves
+# because otherwise they are caught by the server, w.o. a message,
+# and nothing is returned. That causes a 502 Bad gateway in Traefik
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
 
-        global DBSession
-        session = DBSession()
+        try:
+            global DBSession
+            session = DBSession()
 
-        c = self.headers.get('Cookie')
-        cookie = SimpleCookie()
-        if c:
-            cookie.load(c)
-        
-        content = None
+            c = self.headers.get('Cookie')
+            cookie = SimpleCookie()
+            if c:
+                cookie.load(c)
 
-        params = {}
-        content_length = int(self.headers['Content-Length'])
-        body = self.rfile.read(content_length)
-        if len(body) > 1000:
-            self.send_error(HTTPStatus.BAD_REQUEST, "Post request body too large")
-            return None
-        for p in body.decode('utf-8').split('&'):
-            kv = p.split('=',maxsplit=1)
-            if kv:
-                k = urllib.parse.unquote(kv[0])
-                v = ''
-                if len(kv)>1:
-                    v = urllib.parse.unquote(kv[1])
-                params[k] = v
+            content = None
 
-        if self.path == '/login':
+            params = {}
+            content_length = int(self.headers['Content-Length'])
+            body = self.rfile.read(content_length)
+            if len(body) > 1000:
+                self.send_error(HTTPStatus.BAD_REQUEST, "Post request body too large")
+                return None
+            for p in body.decode('utf-8').split('&'):
+                kv = p.split('=', maxsplit=1)
+                if kv:
+                    k = urllib.parse.unquote(kv[0])
+                    v = ''
+                    if len(kv) > 1:
+                        v = urllib.parse.unquote(kv[1])
+                    params[k] = v
 
-            user = session.query(User).filter(User.email==params['email']).first()
-            if user:
-                print('valid user found', user.email, user.password)
-                self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
-                self.send_header("Location","/books")
-                for s in session.query(Session).filter(Session.userid == user.id):
-                    print(s.id, s.user.email)
-                    session.delete(s)
-                ns = Session(userid=user.id, id=guid().hex)
-                session.add(ns)
-                self.send_session_cookie(ns.id)
+            if self.path == '/login':
+                print('login')
+                for k in params:
+                    print(k, params[k])
+                print(flush=True)
+                user = session.query(User).filter(User.email == params['email']).first()
+                if user:
+                    print('valid user found', user.email, user.password)
+                    if checkpassword(params['password'], user.password):
+                        self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
+                        self.send_header("Location", "/books")
+                        for s in session.query(Session).filter(Session.userid == user.id):
+                            print('old session deleted', s.id, s.user.email)
+                            session.delete(s)
+                        ns = Session(userid=user.id, id=guid().hex)
+                        session.add(ns)
+                        self.send_session_cookie(ns.id)
+                        print('user authenticated', flush=True)
+                    else:
+                        self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
+                        self.send_header("Location", "/books/login.html?failed")
+                        self.send_session_cookie(None)
+                        print('user authentication failed', flush=True)
+                else:
+                    self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
+                    self.send_header("Location", "/books/login.html?failed")
+                    self.send_session_cookie(None)
+
+            elif self.path == '/verifysession':
+                print('verifysession', flush=True)
+                for s in session.query(Session).filter(Session.id == params['sessionid']):
+                    print(s.id, s.user.email, flush=True)
+                    self.send_response(HTTPStatus.OK, "valid session")
+                    content = bytes(s.user.email, 'utf-8')
+                    print('found', content)
+                    break
+                if not content:
+                    self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+                    print('unauthorized', flush=True)
+                else:
+                    self.send_response(HTTPStatus.OK, "valid session")
+                    print('ok authorized', flush=True)
+
+            elif self.path == '/logout':
+                print('logout', flush=True)
+                c = self.headers.get('Cookie')
+                cookie = SimpleCookie()
+                if c:
+                    cookie.load(c)
+                if 'session' in cookie:
+                    print('session', cookie['session'], flush=True)
+                    for s in session.query(Session).filter(Session.id == cookie['session'].value):
+                        print(s.id, s.user.email, flush=True)
+                        session.delete(s)
+                        content = bytes(s.user.email, 'utf-8')
+                        print('deleted', content)
+                        break
+                if not content:
+                    self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+                    print('unauthorized', flush=True)
+                else:
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Location", "/books/login.html")
+                    print('ok authorized', flush=True)
             else:
-                self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
-                self.send_header("Location","/books/login.html")
-                self.send_session_cookie(None)
+                self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
-        elif self.path == '/verifysession':
-            print('verifysession', flush=True)
-            for s in session.query(Session).filter(Session.id == params['sessionid']):
-                print(s.id, s.user.email, flush=True)
-                self.send_response(HTTPStatus.OK, "valid session")
-                content = bytes(s.user.email, 'utf-8')
-                print('found',content)
-                break
-            if not content:
-                self.send_response(HTTPStatus.UNAUTHORIZED,"no valid session")
-                print('unauthorized', flush=True)
-            else:
-                self.send_response(HTTPStatus.OK,"valid session")
-                print('ok authorized', flush=True)
-        else:
-            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
-
-        session.commit()
-        if content:
-            print('content', content, flush=True)
-            self.send_header("Content-type", "text/html; charset=UTF-8")
-            self.send_header("Content-Length", len(content))
-            #self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
-            self.end_headers()
-            try:
+            session.commit()
+            if content:
+                print('content', content, flush=True)
+                self.send_header("Content-type", "text/html; charset=UTF-8")
+                self.send_header("Content-Length", len(content))
+                self.end_headers()
                 self.wfile.write(content)
-            except Exception as e:
-                print(e, flush=True)
-            print('done', flush=True)
-            self.wfile.flush()
-        else:
-            print('no content', flush=True)
-            self.end_headers()
-        return None
-            
+                self.wfile.flush()
+                print('done', flush=True)
+            else:
+                print('no content', flush=True)
+                self.end_headers()
+
+            return None
+        except Exception as e:
+            print('uncaught exception', e, flush=True)
+            print_exc(file=sys.stdout)
+            print(flush=True)
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
+
     def end_headers(self):
         super().end_headers()
 
@@ -121,6 +207,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         for morsel in cookie.values():
             self.send_header("Set-Cookie", morsel.OutputString())
 
+
 if __name__ == '__main__':
     import argparse
     from time import sleep
@@ -128,10 +215,10 @@ if __name__ == '__main__':
     import socketserver
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--port',     '-p', default=8005, type=int, help='application port')
-    parser.add_argument('--backoff',  '-b', default=2,    type=int, help='start seconds to wait on db connection (doubles every try)')
-    parser.add_argument('--retries',  '-r', default=3,    type=int, help='number of times to retry initial database connection')
-    parser.add_argument('--database', '-d', default='/usr/src/app/user.db',    type=str, help='number of times to retry initial database connection')
+    parser.add_argument('--port', '-p', default=8005, type=int, help='application port')
+    parser.add_argument('--backoff', '-b', default=2, type=int, help='start seconds to wait on db connection (doubles every try)')
+    parser.add_argument('--retries', '-r', default=3, type=int, help='number of times to retry initial database connection')
+    parser.add_argument('--database', '-d', default='/usr/src/app/user.db', type=str, help='number of times to retry initial database connection')
     args = parser.parse_args()
 
     connection = f"sqlite:///{args.database}"
@@ -158,11 +245,15 @@ if __name__ == '__main__':
         print(f"No database connections after {retries} tries ({waited} seconds)")
         exit(111)
 
+    # TODO make default user account configurable
     global DBSession
     DBSession = sessionmaker(bind=db_engine)
     session = DBSession()
-    new_user = User(email='jaapaap',password='secret')
-    session.merge(new_user)
+    for s in session.query(User).filter(User.email == 'jaapaap'):
+        print(s.id, s.user.email)
+        session.delete(s)
+    ns = User(email='jaapaap', password=newpassword('secret'))
+    session.add(ns)
     session.commit()
 
     socketserver.TCPServer.allow_reuse_address = True  # on the class! (not the instance)

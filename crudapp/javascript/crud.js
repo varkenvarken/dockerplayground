@@ -8,10 +8,10 @@ $(document).ready(function() {
     });
 
     // link to same server on a different port
-    // var restendpointbooks = window.location.protocol + '//' + window.location.hostname + '/objects/books';
-    // var restendpointimages = window.location.protocol + '//' + window.location.hostname + '/objects/images';
     var restendpointbooks = '/objects/books';
     var restendpointimages = '/objects/images';
+    var loginpage = '/books/login.html';
+    var logoutendpoint = '/auth/logout';
 
     var columnDefs = [
         {
@@ -173,6 +173,10 @@ $(document).ready(function() {
         }
     });
 
-
+    $('#logout').click(
+        function(){
+            $.post(logoutendpoint,function( data ) { window.location.replace(loginpage);})
+        }
+    );
 });
 
