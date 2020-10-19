@@ -279,7 +279,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link expired")
                     self.send_header("Location", "/books/login.html?expired")
                     self.end_headers()
-                # TODO clean pending users
+                # TODO clean pending users with same email? (note: only expired)
             else:
                 print('not found', flush=True)
                 self.send_error(HTTPStatus.NOT_FOUND, "Not found")
