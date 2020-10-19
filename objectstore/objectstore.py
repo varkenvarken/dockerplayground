@@ -1,3 +1,25 @@
+#  objectstore.py, an REST api for a book centric CRUD model
+#
+#  part of https://github.com/varkenvarken/dockerplayground
+#
+#  (c) 2020 Michel Anders (varkenvarken)
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+
+
 import sys
 from datetime import datetime
 from base64 import b64decode, b64encode
@@ -6,6 +28,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, LargeBinary
 from falcon_autocrud.resource import CollectionResource, SingleResource
 import requests
+
 
 def convert2b64(ob):
     """
@@ -69,7 +92,7 @@ class LoginResource:
             print('cookies', req.cookies, flush=True)
         if req.params:
             print('params', req.params)
-        
+
         raise falcon.HTTPNotFound('/auth/login')
 
         resp.set_cookie('session', 'oink')
@@ -97,20 +120,18 @@ class Book(Base):
     edited      = Column(DateTime(), default=datetime.now())
 
 
-from falcon import version
-
 class BookCollectionResource(CollectionResource):
     model = Book
 
     def on_get(self, req, resp):
         if req.cookies and 'session' in req.cookies:
             print('cookies', req.cookies, flush=True)
-            r = requests.post('http://authserver:8005/verifysession', data = {'sessionid':req.cookies['session']})
+            r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
             print(r, flush=True)
         else:
             raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
         super().on_get(req, resp)
-            
+
 
 class BookResource(SingleResource):
     model = Book
@@ -266,7 +287,7 @@ if __name__ == '__main__':
     app.add_route('/health', HealthResource())
     app.add_route('/metrics', prometheus)
     app.add_route('/login', LoginResource())
-    
+
     with make_server('', args.port, app) as httpd:
         print(f"Serving on port {args.port} ...", file=sys.stderr)
         httpd.serve_forever()
