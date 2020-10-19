@@ -173,6 +173,7 @@ $(document).ready(function() {
         }
     });
 
+    // we want to redirect, not click. See: https://stackoverflow.com/questions/503093/how-do-i-redirect-to-another-webpage
     $('#logout').click(
         function(){
             $.post(logoutendpoint,function( data ) { window.location.replace(loginpage);})

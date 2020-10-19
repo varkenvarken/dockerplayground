@@ -24,6 +24,7 @@ from http.server import BaseHTTPRequestHandler
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 import urllib
+from urllib.parse import urlparse
 import sys
 from datetime import datetime
 from uuid import uuid4 as guid
@@ -59,11 +60,13 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = 'user'
     id          = Column(Integer, primary_key=True)
-    email       = Column(String(100))
+    email       = Column(String(100), unique=True)
     password    = Column(String(100))
     created     = Column(DateTime(), default=datetime.now())
     active      = Column(Boolean(), default=True)
+    attempts    = Column(Integer, default=0)
     accessed    = Column(DateTime(), default=datetime.now())
+    locked      = Column(DateTime(), default=datetime.now())
 
 
 class Session(Base):
@@ -71,7 +74,15 @@ class Session(Base):
     id       = Column(String(34), primary_key=True)  # holds a guid
     created  = Column(DateTime(), default=datetime.now())
     userid   = Column(Integer, ForeignKey('user.id'))
-    user = relationship(User)
+    user     = relationship(User)
+
+
+class PendingUser(Base):
+    __tablename__ = 'pendinguser'
+    id          = Column(String(34), primary_key=True)  # holds a guid
+    email       = Column(String(100), unique=True)
+    password    = Column(String(100))
+    created     = Column(DateTime(), default=datetime.now())
 
 
 # we catch exceptions in this method ourselves
@@ -108,32 +119,67 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     params[k] = v
 
             if self.path == '/login':
-                print('login')
+                print('login / register')
                 for k in params:
-                    print(k, params[k])
+                    print("  ", k, params[k])
                 print(flush=True)
                 user = session.query(User).filter(User.email == params['email']).first()
-                if user:
-                    print('valid user found', user.email, user.password)
-                    if checkpassword(params['password'], user.password):
-                        self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
-                        self.send_header("Location", "/books")
-                        for s in session.query(Session).filter(Session.userid == user.id):
-                            print('old session deleted', s.id, s.user.email)
-                            session.delete(s)
-                        ns = Session(userid=user.id, id=guid().hex)
-                        session.add(ns)
-                        self.send_session_cookie(ns.id)
-                        print('user authenticated', flush=True)
+                if ('login' not in params) or (params['login'] not in ('Login', 'Register')):
+                    self.send_error(HTTPStatus.BAD_REQUEST, "Not found")
+                elif params['login'] == 'Login':
+                    print('login')
+                    if user:
+                        print('valid user found', user.email, user.password)
+                        if checkpassword(params['password'], user.password):
+                            self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
+                            self.send_header("Location", "/books")
+                            for s in session.query(Session).filter(Session.userid == user.id):
+                                print('old session deleted', s.id, s.user.email)
+                                session.delete(s)
+                            ns = Session(userid=user.id, id=guid().hex)
+                            session.add(ns)
+                            self.send_session_cookie(ns.id)
+                            print('user authenticated', flush=True)
+                        else:
+                            self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
+                            self.send_header("Location", "/books/login.html?failed")
+                            self.send_session_cookie(None)
+                            print('user authentication failed', flush=True)
                     else:
                         self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
                         self.send_header("Location", "/books/login.html?failed")
                         self.send_session_cookie(None)
-                        print('user authentication failed', flush=True)
-                else:
-                    self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
-                    self.send_header("Location", "/books/login.html?failed")
-                    self.send_session_cookie(None)
+                else:  # Register
+                    print('register')
+                    # TODO validate email (rough format) and password (complexity)
+                    if user:
+                        print('email found', flush=True)
+                        self.send_response(HTTPStatus.SEE_OTHER, "Registration failed email address in use")
+                        self.send_header("Location", "/books/login.html?inuse")
+                        self.send_session_cookie(None)
+                    else:
+                        user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
+                        if user:
+                            print('previous registration not yet confirmed', flush=True)
+                            # previous registration but not yet confirmed
+                            self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email resent")
+                            self.send_header("Location", "/books/login.html?await")
+                            session.delete(user)
+                            session.commit()
+                        else:
+                            print('first registration', flush=True)
+                            # first registration attempt
+                            self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email sent")
+                            self.send_header("Location", "/books/login.html?pending")
+                        # TODO this could fail with a unique constraint violation if two people choose the same email at the same time
+                        self.send_session_cookie(None)
+                        pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']))
+                        session.add(pu)
+                        session.commit()
+                        user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
+                        for c in PendingUser.__table__.c.keys():
+                            print(c, getattr(user, c))
+                        # TODO send the actual confirmation mail
 
             elif self.path == '/verifysession':
                 print('verifysession', flush=True)
@@ -171,6 +217,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.send_response(HTTPStatus.OK)
                     self.send_header("Location", "/books/login.html")
                     print('ok authorized', flush=True)
+
             else:
                 self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
@@ -206,6 +253,45 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         cookie['session']['path'] = '/'
         for morsel in cookie.values():
             self.send_header("Set-Cookie", morsel.OutputString())
+
+    def do_GET(self):
+        try:
+            global DBSession
+            session = DBSession()
+
+            url = urlparse(self.path)
+            print(url, flush=True)
+            if url.path == '/confirmregistration':
+                print('confirmation', flush=True)
+                user = session.query(PendingUser).filter(PendingUser.id == url.query).first()
+                if user:
+                    # copy user to User table
+                    ns = User(email=user.email, password=user.password)
+                    session.add(ns)
+                    session.commit()
+                    # redirect to login page
+                    print('ok', flush=True)
+                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation ok")
+                    self.send_header("Location", "/books/login.html?confirmed")
+                    self.end_headers()
+                else:  # no pending confirmation or expired, redirect to login page
+                    print('expired', flush=True)
+                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link expired")
+                    self.send_header("Location", "/books/login.html?expired")
+                    self.end_headers()
+                # TODO clean pending users
+            else:
+                print('not found', flush=True)
+                self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+                self.end_headers()
+
+            return None
+        except Exception as e:
+            print('uncaught exception', e, flush=True)
+            print_exc(file=sys.stdout)
+            print(flush=True)
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
 
 
 if __name__ == '__main__':
