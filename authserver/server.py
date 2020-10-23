@@ -39,6 +39,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship, sessionmaker
 
+from smtp import fetch_smtp_params, mail
 
 def newpassword(password):
     salt = urandom(16)
@@ -179,7 +180,16 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
                         for c in PendingUser.__table__.c.keys():
                             print(c, getattr(user, c))
-                        # TODO send the actual confirmation mail
+                        u, p, s = fetch_smtp_params()
+                        mail(f"""
+                        Hi,
+                        
+                        Please confirm your registration on Book collection.
+                        
+                        https://server.michelanders.nl/auth/confirm?{pu.id}
+                        
+                        """,
+                        "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
 
             elif self.path == '/verifysession':
                 print('verifysession', flush=True)

@@ -4,6 +4,12 @@ version: '3.7'
 secrets:
     mysql-root:
         file: secrets/mysqlrootpassword.txt
+    smtp-server:
+        file: secrets/smtpserver.txt
+    smtp-user:
+        file: secrets/smtpuser.txt
+    smtp-password:
+        file: secrets/smtppassword.txt
 
 # define services (we pass .env to have the same environment vars inside the compose file as in the containers
 services:
@@ -112,13 +118,25 @@ services:
     # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
       - "traefik.docker.network=dockerplayground_appnetwork"
 
-  authserver:
+  authserver:  # TODO persists the db
     image: authserver
     # no outward exposed ports, traefik will deal with that
     #ports:
     #  - 8005:8005
     networks:
       - appnetwork
+    environment: # if environment variables are set they override the files
+      - SMTP_SERVER
+      - SMTP_USER
+      - SMTP_PASSWORD
+      - SMTP_SERVER_FILE=/run/secrets/smtp-server
+      - SMTP_USER_FILE=/run/secrets/smtp-user
+      - SMTP_PASSWORD_FILE=/run/secrets/smtp-password
+    env_file: .env
+    secrets:
+      - smtp-server
+      - smtp-user
+      - smtp-password
     restart: on-failure
     build:
       context: .
