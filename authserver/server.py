@@ -41,6 +41,7 @@ from sqlalchemy.orm import relationship, sessionmaker
 
 from smtp import fetch_smtp_params, mail
 
+
 def newpassword(password):
     salt = urandom(16)
     dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
@@ -184,13 +185,13 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         u, p, s = fetch_smtp_params()
                         mail(f"""
                         Hi,
-                        
+
                         Please confirm your registration on Book collection.
-                        
+
                         https://server.michelanders.nl/auth/confirmregistration?{pu.id}
-                        
+
                         """,
-                        "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+                             "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
 
             elif self.path == '/verifysession':
                 print('verifysession', flush=True)

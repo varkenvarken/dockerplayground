@@ -21,16 +21,18 @@
 
 import os
 
+
 def mail(message, subject, fromaddr, toaddr, smtp, username, password):
     from smtplib import SMTP_SSL
     with SMTP_SSL(smtp) as smtp:
         smtp.login(username, password)
         smtp.sendmail(fromaddr, toaddr, f"From: {fromaddr}\r\nTo: {toaddr}\r\nSubject: {subject}\r\n\r\n{message}")
 
+
 def fetch_smtp_params():
     """
     Get smtp variables from file or environment.
-    
+
     enviroment variables overrule variables in files.
     """
     env = {}
@@ -46,6 +48,7 @@ def fetch_smtp_params():
                 raise KeyError(f'{var} and {varf} not defined in environment')
 
     return env['SMTP_USER'], env['SMTP_PASSWORD'], env['SMTP_SERVER']
+
 
 if __name__ == "__main__":
     u, p, s = fetch_smtp_params()
