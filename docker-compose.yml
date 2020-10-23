@@ -112,11 +112,13 @@ services:
       - "traefik.http.routers.crudapp.tls=true"
       - "traefik.http.routers.crudapp.rule=Host(`server.michelanders.nl`) && PathPrefix(`/books`)"
       - "traefik.backend=crudapp"
-      - "traefik.http.routers.crudapp.middlewares=bookprefix"
+      - "traefik.http.routers.crudapp.middlewares=test-ratelimit,bookprefix"
       - "traefik.http.middlewares.bookprefix.stripprefix.prefixes=/books"
       - "traefik.http.services.crudapp.loadbalancer.server.port=8000"
     # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
       - "traefik.docker.network=dockerplayground_appnetwork"
+      - "traefik.http.middlewares.test-ratelimit.ratelimit.average=10"
+      - "traefik.http.middlewares.test-ratelimit.ratelimit.burst=5"
 
   authserver:
     image: authserver
