@@ -92,7 +92,8 @@ class PendingUser(Base):
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
-
+        for h in self.headers:
+            print(h, self.headers[h], flush=True)
         try:
             global DBSession
             session = DBSession()
@@ -186,7 +187,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         
                         Please confirm your registration on Book collection.
                         
-                        https://server.michelanders.nl/auth/confirm?{pu.id}
+                        https://server.michelanders.nl/auth/confirmregistration?{pu.id}
                         
                         """,
                         "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
