@@ -118,7 +118,7 @@ services:
     # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
       - "traefik.docker.network=dockerplayground_appnetwork"
 
-  authserver:  # TODO persists the db
+  authserver:
     image: authserver
     # no outward exposed ports, traefik will deal with that
     #ports:
@@ -137,6 +137,8 @@ services:
       - smtp-server
       - smtp-user
       - smtp-password
+    volumes:
+      - "userdata:/var/lib/sqlite"
     restart: on-failure
     build:
       context: .
@@ -156,3 +158,4 @@ networks:
 
 volumes:
     data:
+    userdata:

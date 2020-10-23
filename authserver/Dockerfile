@@ -5,7 +5,7 @@ RUN pip install PyMySQL
 RUN pip install PyMySQL[rsa]
 RUN pip install SQLAlchemy
 
-ENTRYPOINT ["python", "server.py", "-d", "user.db"]
+ENTRYPOINT ["python", "server.py", "-d", "/var/lib/sqlite/user.db"]
 
 #HEALTHCHECK CMD ["curl", "--fail", "http://localhost:8000/"] 
 

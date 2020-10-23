@@ -347,8 +347,9 @@ if __name__ == '__main__':
     DBSession = sessionmaker(bind=db_engine)
     session = DBSession()
     for s in session.query(User).filter(User.email == 'jaapaap'):
-        print(s.id, s.user.email)
+        print(s.id, s.email)
         session.delete(s)
+    session.commit()
     ns = User(email='jaapaap', password=newpassword('secret'))
     session.add(ns)
     session.commit()
