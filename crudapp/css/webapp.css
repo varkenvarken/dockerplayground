@@ -1,1 +1,9 @@
 img.coverart { height:48px; margin:0; padding:0; }
+
+.login-info { border-bottom: 2px solid #dfd;}
+.login-error  { border-bottom: 2px solid #fdd;}
+
+.login-container { width:50%; max-width:400px; margin: 0 auto;}
+.login-container input { float:right; width:50%;}
+.login-container .buttons {display:flex; justify-content: center; margin-top:5px;}
+.login-container .buttons input { width:50%; }
