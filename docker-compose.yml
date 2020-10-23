@@ -1,9 +1,9 @@
 version: '3.7'
 
-# define secrets
+# define secrets (we will override the dummy values in the swarm)
 secrets:
     mysql-root:
-        file: mysqlrootpassword.txt
+        file: secrets/mysqlrootpassword.txt
 
 # define services (we pass .env to have the same environment vars inside the compose file as in the containers
 services:
