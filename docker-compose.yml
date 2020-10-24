@@ -117,8 +117,8 @@ services:
       - "traefik.http.services.crudapp.loadbalancer.server.port=8000"
     # in compose mode we should use dockerplayground_appnetwork by we need not specify it because all machines are on the same net as traefik
       - "traefik.docker.network=dockerplayground_appnetwork"
-      - "traefik.http.middlewares.test-ratelimit.ratelimit.average=10"
-      - "traefik.http.middlewares.test-ratelimit.ratelimit.burst=5"
+      - "traefik.http.middlewares.test-ratelimit.ratelimit.average=1000"
+      - "traefik.http.middlewares.test-ratelimit.ratelimit.burst=5000"
 
   authserver:
     image: authserver
