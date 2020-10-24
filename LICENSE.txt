@@ -18,3 +18,8 @@
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
+#
+#  Fonts and icons included with the example web pages:
+#  Font Awesome Free 5.12.1 by @fontawesome - https://fontawesome.com
+#  License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+#

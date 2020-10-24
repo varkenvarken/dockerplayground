@@ -1,4 +1,35 @@
+    
 $(document).ready(function() {
+
+    // https://jqueryvalidation.org/
+    // at least 1 char out of each of the character classes and >= 8 long
+	$.validator.addMethod("complex", function(value) {
+        var anUpperCase = /[A-Z]/;
+        var aLowerCase = /[a-z]/; 
+        var aNumber = /[0-9]/;
+        var aSpecial = /[!|@#$%^&*()-_.,<>?/\{}]/;
+
+        if(value.length < 8){ return false; }
+
+        var numUpper = 0;
+        var numLower = 0;
+        var numNums = 0;
+        var numSpecials = 0;
+        for(var i=0; i<value.length; i++){
+            if(anUpperCase.test(value[i]))
+                numUpper++;
+            else if(aLowerCase.test(value[i]))
+                numLower++;
+            else if(aNumber.test(value[i]))
+                numNums++;
+            else if(aSpecial.test(value[i]))
+                numSpecials++;
+        }
+
+        if(numUpper < 1 || numLower < 1 || numNums < 1 || numSpecials < 1){ return false; }
+        
+        return true;
+	}, '<i class="fas fa-exclamation-triangle"></i> Password not complex enough');
 
     
     function getQueryVariable(variable)
@@ -17,22 +48,80 @@ $(document).ready(function() {
     }
 
     if(getQueryVariable("failed")){
-        $("#banner").html("<p class='login-error'>Login failed</p>");
+        $("#loginerror").html("<p class='login-error'>Login failed</p>");
     }
     if(getQueryVariable("inuse")){
-        $("#banner").html("<p class='login-error'>Email address already registered</p>");
+        $("#registrationerror").html("<p class='login-error'>Email address already registered</p>");
     }
     if(getQueryVariable("pending")){
-        $("#banner").html("<p class='login-info'>Confirmation email sent. Please check your inbox</p>");
+        $("#registrationerror").html("<p class='login-info'>Confirmation email sent. Please check your inbox</p>");
     }
     if(getQueryVariable("await")){
-        $("#banner").html("<p class='login-info'>Confirmation email sent again. Please check your inbox</p>");
+        $("#registrationerror").html("<p class='login-info'>Confirmation email sent again. Please check your inbox</p>");
     }
     if(getQueryVariable("confirmed")){
-        $("#banner").html("<p class='login-info'>Confirmation successful. Please log in</p>");
+        $("#loginerror").html("<p class='login-info'>Confirmation successful. Please log in</p>");
     }
     if(getQueryVariable("expired")){
-        $("#banner").html("<p class='login-error'>Confirmation link expired. Please register to access the site</p>");
+        $("#registrationerror").html("<p class='login-error'>Confirmation link expired. Please register to access the site</p>");
     }
+    
+    $(".registrationform").validate({
+        rules: {
+            name: {
+                required: true,
+                minlength: 2
+            },
+            password1: {
+                required: true,
+                complex: true
+            },
+            password2: {
+                required: true,
+                complex: true,
+                equalTo: "#password1"
+            },
+            email: {
+                required: true,
+                email: true
+            }
+        },
+        messages: {
+            name: {
+                required: '<i class="fas fa-exclamation-triangle"></i> Please enter a name',
+                minlength: '<i class="fas fa-exclamation-triangle"></i> Your name must consist of at least 2 characters'
+            },
+            password: {
+                required: '<i class="fas fa-exclamation-triangle"></i> Please provide a password',
+            },
+            password2: {
+                required: '<i class="fas fa-exclamation-triangle"></i> Please provide a password',
+                equalTo: '<i class="fas fa-exclamation-triangle"></i> Please enter the same password as above'
+            },
+            email: '<i class="fas fa-exclamation-triangle"></i> Please enter a valid email address'
+        }
+    });
+        
+    $(".loginform").validate({
+        errorLabelContainer: "#loginerror",
+        errorElement: "div",
+        rules: {
+            password: {
+                required: true,
+                complex: true
+            },
+            email: {
+                required: true,
+                email: true
+            }
+        },
+        messages: {
+            password: {
+                required: '<i class="fas fa-exclamation-triangle"></i> Please provide a password',
+            },
+            email: '<i class="fas fa-exclamation-triangle"></i> Please enter a valid email address'
+        }
+    });
+        
 });
 

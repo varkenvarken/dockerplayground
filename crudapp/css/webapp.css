@@ -1,9 +1,28 @@
 img.coverart { height:48px; margin:0; padding:0; }
 
-.login-info { border-bottom: 2px solid #dfd;}
-.login-error  { border-bottom: 2px solid #fdd;}
+.title {font-size: 72px; font-weight:bold;}
+.topbanner {background-color:black; height:40px; display: flex; align-items: center;}
+.subtitle { font-size:24px; color:white; padding-left:0.5em; width:50%}
 
-.login-container { width:50%; max-width:400px; margin: 0 auto;}
-.login-container input { float:right; width:50%;}
-.login-container .buttons {display:flex; justify-content: center; margin-top:5px;}
-.login-container .buttons input { width:50%; }
+.login-container { width:80%; max-width:960px; margin: 0 auto;}
+.subtitle, .content { clear:both; float:left;}
+.content {width:60%}
+.logo {width:100%}
+form { float:right; width:100%}
+.strut {width:50%}
+.loginform input { width:100px; float:right;}
+.loginform button { float:right;}
+
+.registrationform {width:40%; margin-top:40px;}
+.signupbanner { background-color:black; width:100%; margin-bottom:10px;}
+.signupbannertext { font-size:24px; color:white; padding-left:0.5em;}
+.registrationform label { clear:both; float:left; padding-left:0.5em;}
+.registrationform input { float:right; width:60%; }
+.registrationform button { clear:both; float:left; width:100%;}
+.callout {font-size:24px; width:100%; margin-bottom:10px;}
+.footer { clear:both; float:left; padding-left:0.5em; border-top:1px solid black; width:100%;}
+.footer a { color:black; }
+
+#loginerror {color:white;}
+#registrationerror { clear:both; float:left; width:100%; height:20px; }
+div.error { font-size:12px;}

@@ -26,7 +26,7 @@ from http.cookies import SimpleCookie
 import requests
 import re
 
-unrestricted = re.compile(r'(/login.html)|(/javascript/.*\.js)|(/css/.*\.css)')
+unrestricted = re.compile(r'(/login.html)|(/books.svg)|(/javascript/.*\.js)|(/css/.*\.css)|(/webfonts/.*)')
 
 
 class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
