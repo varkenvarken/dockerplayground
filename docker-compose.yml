@@ -147,6 +147,8 @@ services:
       - smtp-server
       - smtp-user
       - smtp-password
+      - admin-user
+      - admin-password
     volumes:
       - "userdata:/var/lib/sqlite"
     restart: on-failure
