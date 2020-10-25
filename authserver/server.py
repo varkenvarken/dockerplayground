@@ -88,6 +88,14 @@ class PendingUser(Base):
     created     = Column(DateTime(), default=datetime.now())
 
 
+class PasswordReset(Base):
+    __tablename__ = 'passwordreset'
+    id          = Column(String(34), primary_key=True)  # holds a guid
+    created     = Column(DateTime(), default=datetime.now())
+    userid      = Column(Integer, ForeignKey('user.id'))
+    user        = relationship(User)
+
+
 # we catch exceptions in this method ourselves
 # because otherwise they are caught by the server, w.o. a message,
 # and nothing is returned. That causes a 502 Bad gateway in Traefik
@@ -123,12 +131,12 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     params[k] = v
 
             if self.path == '/login':
-                print('login / register')
+                print('login / register /forgot')
                 for k in params:
                     print("  ", k, params[k])
                 print(flush=True)
                 user = session.query(User).filter(User.email == params['email']).first()
-                if ('login' not in params) or (params['login'] not in ('Login', 'Register')):
+                if ('login' not in params) or (params['login'] not in ('Login', 'Register', 'Forgot')):
                     self.send_error(HTTPStatus.BAD_REQUEST, "Not found")
                 elif params['login'] == 'Login':
                     print('login')
@@ -153,7 +161,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
                         self.send_header("Location", "/books/login.html?failed")
                         self.send_session_cookie(None)
-                else:  # Register
+                elif params['login'] == 'Register':
                     print('register')
                     # TODO validate email (rough format) and password (complexity)
                     if user:
@@ -193,6 +201,33 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
                         """,
                              "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+                elif params['login'] == 'Forgot':
+                    print('forgot')
+                    # TODO validate email (rough format) and password (complexity)
+
+                    # we always send the same response, no matter if the user exists or not
+                    self.send_response(HTTPStatus.SEE_OTHER, "Email sent")
+                    self.send_header("Location", "/books/login.html?checkemail")
+                    self.send_session_cookie(None)
+
+                    user = session.query(User).filter(User.email == params['email']).first()
+                    if not user:  # no user found but we are not providing this information
+                        print('no user found', flush=True)
+                    else:
+                        pr = PasswordReset(id=guid().hex, userid=user.id)
+                        session.add(pr)
+                        session.commit()
+                        u, p, s = fetch_smtp_params()
+                        mail(f"""
+                        Hi,
+
+                        We received a request to reset your password. If it wasn't you, please ignore this message.
+                        Otherwise, follow this link and select a new password.
+
+                        https://server.michelanders.nl/auth/resetpassword?{pr.id}
+
+                        """,
+                             "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
 
             elif self.path == '/verifysession':
                 print('verifysession', flush=True)
@@ -230,6 +265,26 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.send_response(HTTPStatus.OK)
                     self.send_header("Location", "/books/login.html")
                     print('ok authorized', flush=True)
+
+            elif self.path == '/newpassword':
+                # TODO rigid input check (do we have the correct parameters present etc.)
+                print('newpassword', flush=True)
+                for k in params:
+                    print("  ", k, params[k])
+                print(flush=True)
+                resetuser = session.query(PasswordReset).filter(PasswordReset.id == params['resetid']).first()
+                if resetuser:
+                    print('ok', flush=True)
+                    user = resetuser.user
+                    user.password = newpassword(params['password'])
+                    session.commit()
+                    self.send_response(HTTPStatus.SEE_OTHER, "Password reset successful")
+                    self.send_header("Location", "/books/login.html?resetsuccessful")
+                    self.send_session_cookie(None)
+                else:
+                    self.send_response(HTTPStatus.SEE_OTHER, "Password reset failed")
+                    self.send_header("Location", "/books/login.html?resetfailed")
+                    self.send_session_cookie(None)
 
             else:
                 self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -286,6 +341,21 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     print('ok', flush=True)
                     self.send_response(HTTPStatus.SEE_OTHER, "Confirmation ok")
                     self.send_header("Location", "/books/login.html?confirmed")
+                    self.end_headers()
+                else:  # no pending confirmation or expired, redirect to login page
+                    print('expired', flush=True)
+                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link expired")
+                    self.send_header("Location", "/books/login.html?expired")
+                    self.end_headers()
+                # TODO clean pending users with same email? (note: only expired)
+            if url.path == '/resetpassword':
+                print('resetpassword', flush=True)
+                pr = session.query(PasswordReset).filter(PasswordReset.id == url.query).first()
+                if pr:
+                    print('ok', flush=True)
+                    # note that we do not create a session
+                    self.send_response(HTTPStatus.SEE_OTHER, "Reset request ok")
+                    self.send_header("Location", f"/books/login.html?choosepassword={pr.id}")
                     self.end_headers()
                 else:  # no pending confirmation or expired, redirect to login page
                     print('expired', flush=True)

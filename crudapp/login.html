@@ -23,6 +23,12 @@
                     <input class="email" type="email" name="email" placeholder="email">
                     <div id="loginerror" class="servererror"></div>
                 </form>
+                <button id="forgotbutton">???</button>
+                <form class="forgottenpassword" action="/auth/login" method="post">
+                    <button id="passwordresetbutton" type="submit" value="Forgot" name="login"><i class="fas fa-sign-in-alt"></i></button> 
+                    <input class="email" type="email" name="email" placeholder="email">
+                    <div id="loginerror" class="servererror"></div>
+                </form>
             </div>
         </div>
         <div class="main">
@@ -33,10 +39,19 @@
                 <div class="signupbanner"><div class="signupbannertext">Sign up for free</div></div>
                 <label for="email">Email</label><input class="email" type="email" name="email">
                 <label for="name">Name</label><input id="name" type="text" name="name">
-                <label for="password">Password</label><input id="password1" type="password" name="password1">
+                <label for="password">Password</label><input id="password1" type="password" name="password">
                 <label for="password2">Confirm password</label><input id="password2" type="password" name="password2">
                 <div id="registrationerror" class="servererror"></div>
                 <button id="loginbutton2" type="submit" value="Register" name="login"><i class="fas fa-user-plus"></i></button> 
+            </form>
+            <form class="newpasswordform" action="/auth/newpassword" method="post">
+                <div class="callout">Manage your book collection with this handy tool.</div>
+                <div class="signupbanner"><div class="signupbannertext">Choose a new password</div></div>
+                <label for="password">Password</label><input id="newpassword1" type="password" name="password">
+                <label for="password2">Confirm password</label><input id="newpassword2" type="password" name="password2">
+                <input name="resetid" type="hidden">
+                <div id="registrationerror" class="servererror"></div>
+                <button id="loginbutton3" type="submit" value="Choose" name="choose"><i class="fas fa-user-plus"></i></button> 
             </form>
         </div>
         <div class="footer"><i class="far fa-copyright"></i> 2020  Michel Anders (varkenvarken)  <a href="https://github.com/varkenvarken/dockerplayground"><i class="fab fa-github"></i></a></div>

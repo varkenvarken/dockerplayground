@@ -122,6 +122,15 @@ $(document).ready(function() {
             email: '<i class="fas fa-exclamation-triangle"></i> Please enter a valid email address'
         }
     });
-        
+
+    $("form.forgottenpassword").hide();
+
+    // todo add email verification to forgottenpassword form
+    $("#forgotbutton").click(function(){
+        $("form.loginform").toggle();
+        $("form.forgottenpassword").toggle();
+    });
+    
+    $('input[name="resetid"]').val(getQueryVariable("choosepassword"));
 });
 
