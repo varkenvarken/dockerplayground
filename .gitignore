@@ -2,3 +2,4 @@
 /objectstore/stuff.db
 .*\/stuff.db
 /stuff.db
+*.pyc
