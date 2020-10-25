@@ -32,6 +32,7 @@ from uuid import uuid4 as guid
 from hashlib import pbkdf2_hmac
 from hmac import compare_digest
 from os import urandom
+import os
 
 from traceback import print_exc
 
@@ -306,6 +307,27 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             return None
 
 
+def fetch_admin_params():
+    """
+    Get admin variables from file or environment.
+
+    enviroment variables overrule variables in files.
+    """
+    env = {}
+    for var in ('ADMIN_USER', 'ADMIN_PASSWORD'):
+        if var in os.environ and os.environ[var].strip() != '':
+            env[var] = os.environ[var]
+        else:
+            varf = var + '_FILE'
+            if varf in os.environ:
+                with open(os.environ[varf]) as f:
+                    env[var] = f.read().strip()
+            else:
+                raise KeyError(f'{var} and {varf} not defined in environment')
+
+    return env['ADMIN_USER'], env['ADMIN_PASSWORD']
+
+
 if __name__ == '__main__':
     import argparse
     from time import sleep
@@ -343,15 +365,15 @@ if __name__ == '__main__':
         print(f"No database connections after {retries} tries ({waited} seconds)")
         exit(111)
 
-    # TODO make default user account configurable
+    username, password = fetch_admin_params()
     global DBSession
     DBSession = sessionmaker(bind=db_engine)
     session = DBSession()
-    for s in session.query(User).filter(User.email == 'jaapaap'):
+    for s in session.query(User).filter(User.email == username):
         print(s.id, s.email)
         session.delete(s)
     session.commit()
-    ns = User(email='jaapaap', password=newpassword('secret'))
+    ns = User(email=username, password=newpassword(password))
     session.add(ns)
     session.commit()
 

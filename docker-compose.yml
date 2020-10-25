@@ -10,6 +10,10 @@ secrets:
         file: secrets/smtpuser.txt
     smtp-password:
         file: secrets/smtppassword.txt
+    admin-user:
+        file: secrets/adminuser.txt
+    admin-password:
+        file: secrets/adminpassword.txt
 
 # define services (we pass .env to have the same environment vars inside the compose file as in the containers
 services:
@@ -131,9 +135,13 @@ services:
       - SMTP_SERVER
       - SMTP_USER
       - SMTP_PASSWORD
+      - ADMIN_USER
+      - ADMIN_PASSWORD
       - SMTP_SERVER_FILE=/run/secrets/smtp-server
       - SMTP_USER_FILE=/run/secrets/smtp-user
       - SMTP_PASSWORD_FILE=/run/secrets/smtp-password
+      - ADMIN_USER_FILE=/run/secrets/admin-user
+      - ADMIN_PASSWORD_FILE=/run/secrets/admin-password
     env_file: .env
     secrets:
       - smtp-server
