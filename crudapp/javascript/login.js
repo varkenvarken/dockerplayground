@@ -66,7 +66,7 @@ $(document).ready(function() {
         $("#registrationerror").html("<p class='login-error'>Confirmation link expired. Please register to access the site</p>");
     }
     
-    $(".registrationform").validate({
+    $("#register").validate({
         rules: {
             name: {
                 required: true,
@@ -131,6 +131,13 @@ $(document).ready(function() {
         $("form.forgottenpassword").toggle();
     });
     
-    $('input[name="resetid"]').val(getQueryVariable("choosepassword"));
+    // todo add password complexity check to choosepassword form
+    var choosepw = getQueryVariable("choosepassword");
+    $('input[name="resetid"]').val(choosepw);
+    if(choosepw){
+        $("#register").hide();
+    }else{
+        $("#newpassword").hide();
+    };
 });
 

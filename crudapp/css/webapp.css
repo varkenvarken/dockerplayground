@@ -9,9 +9,10 @@ img.coverart { height:48px; margin:0; padding:0; }
 .content {width:60%}
 .logo {width:100%}
 form { float:right; width:100%}
+form.loginform, form.forgottenpassword { width:80%; }
 .strut {width:50%}
-.loginform input { width:100px; float:right;}
-.loginform button { float:right;}
+.loginform input, .forgottenpassword input { width:100px; float:right;}
+.loginform button, .forgottenpassword button, #forgotbutton { float:right;}
 
 .registrationform {width:40%; margin-top:40px;}
 .signupbanner { background-color:black; width:100%; margin-bottom:10px;}

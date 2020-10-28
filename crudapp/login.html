@@ -9,6 +9,7 @@
       <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4-4.1.1/jq-3.3.1/dt-1.10.22/b-1.6.4/b-colvis-1.6.4/cr-1.5.2/r-2.2.6/sl-1.3.1/datatables.min.css"/>
       <link rel="stylesheet" type="text/css" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css"/>
       <link rel="stylesheet" href="/books/css/iconsall.min.css">
+      <link rel="stylesheet" href="https://unpkg.com/balloon-css/balloon.min.css">
     </head>
 
     <body>
@@ -17,15 +18,15 @@
         <div class="topbanner">
             <div class="subtitle">Manage your books with ease</div>
             <div class="strut">
+                <button id="forgotbutton" aria-label="Forgot password?" data-balloon-pos="up-right"><i class="far fa-question-circle"></i></button>
                 <form class="loginform" action="/auth/login" method="post">
-                    <button id="loginbutton1" type="submit" value="Login" name="login"><i class="fas fa-sign-in-alt"></i></button> 
+                    <button id="loginbutton1" type="submit" value="Login" name="login" aria-label="Click to log in" data-balloon-pos="up-right"><i class="fas fa-sign-in-alt"></i></button> 
                     <input id="password" type="password" name="password" placeholder="password">
                     <input class="email" type="email" name="email" placeholder="email">
                     <div id="loginerror" class="servererror"></div>
                 </form>
-                <button id="forgotbutton">???</button>
                 <form class="forgottenpassword" action="/auth/login" method="post">
-                    <button id="passwordresetbutton" type="submit" value="Forgot" name="login"><i class="fas fa-sign-in-alt"></i></button> 
+                    <button id="passwordresetbutton" type="submit" value="Click if you forgot your password" name="login"><i class="fas fa-envelope"></i></button> 
                     <input class="email" type="email" name="email" placeholder="email">
                     <div id="loginerror" class="servererror"></div>
                 </form>
@@ -34,24 +35,24 @@
         <div class="main">
             <div class="content"><img class="logo" src="/books/books.svg">
             </div>
-            <form class="registrationform" action="/auth/login" method="post">
+            <form id="register" class="registrationform" action="/auth/login" method="post">
                 <div class="callout">Manage your book collection with this handy tool.</div>
                 <div class="signupbanner"><div class="signupbannertext">Sign up for free</div></div>
-                <label for="email">Email</label><input class="email" type="email" name="email">
-                <label for="name">Name</label><input id="name" type="text" name="name">
-                <label for="password">Password</label><input id="password1" type="password" name="password">
-                <label for="password2">Confirm password</label><input id="password2" type="password" name="password2">
+                <label for="email" aria-label="Enter a valid email address" data-balloon-pos="up-right">Email</label><input class="email" type="email" name="email" placeholder="yourname@yourdomain.org">
+                <label for="name" aria-label="Your name" data-balloon-pos="up-right">Name</label><input id="name" type="text" name="name" placeholder="Your Name">
+                <label for="password" data-balloon-length="large" aria-label="Password must be 8 or more characters and contain a capital, a number and a special character" data-balloon-pos="up-right">Password</label><input id="password1" type="password" name="password">
+                <label for="password2" aria-label="Both passwords must match" data-balloon-pos="up-right">Confirm password</label><input id="password2" type="password" name="password2">
                 <div id="registrationerror" class="servererror"></div>
-                <button id="loginbutton2" type="submit" value="Register" name="login"><i class="fas fa-user-plus"></i></button> 
+                <button id="loginbutton2" type="submit" value="Register" name="login" aria-label="Register your account" data-balloon-pos="up-right"><i class="fas fa-user-plus"></i></button> 
             </form>
-            <form class="newpasswordform" action="/auth/newpassword" method="post">
+            <form id="newpassword"  class="registrationform" action="/auth/newpassword" method="post">
                 <div class="callout">Manage your book collection with this handy tool.</div>
                 <div class="signupbanner"><div class="signupbannertext">Choose a new password</div></div>
                 <label for="password">Password</label><input id="newpassword1" type="password" name="password">
                 <label for="password2">Confirm password</label><input id="newpassword2" type="password" name="password2">
                 <input name="resetid" type="hidden">
                 <div id="registrationerror" class="servererror"></div>
-                <button id="loginbutton3" type="submit" value="Choose" name="choose"><i class="fas fa-user-plus"></i></button> 
+                <button id="loginbutton3" type="submit" value="Choose" name="choose" aria-label="Click to submit your new password" data-balloon-pos="up-right"><i class="fas fa-key"></i></i></button> 
             </form>
         </div>
         <div class="footer"><i class="far fa-copyright"></i> 2020  Michel Anders (varkenvarken)  <a href="https://github.com/varkenvarken/dockerplayground"><i class="fab fa-github"></i></a></div>
