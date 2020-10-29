@@ -1,6 +1,7 @@
 img.coverart { height:48px; margin:0; padding:0; }
 
 .title {font-size: 72px; font-weight:bold;}
+.title img { width:72px; margin-left:32px; padding-bottom:8px;}
 .topbanner {background-color:black; height:40px; display: flex; align-items: center;}
 .subtitle { font-size:24px; color:white; padding-left:0.5em; width:50%}
 
@@ -15,10 +16,11 @@ form.loginform, form.forgottenpassword { width:80%; }
 .loginform button, .forgottenpassword button, #forgotbutton { float:right;}
 
 .registrationform {width:40%; margin-top:40px;}
+.field { width:100%;}
 .signupbanner { background-color:black; width:100%; margin-bottom:10px;}
 .signupbannertext { font-size:24px; color:white; padding-left:0.5em;}
-.registrationform label { clear:both; float:left; padding-left:0.5em;}
-.registrationform input { float:right; width:60%; }
+.registrationform label { width:40%; padding-left:0.5em;}
+.registrationform input { width:60%; }
 .registrationform button { clear:both; float:left; width:100%;}
 .callout {font-size:24px; width:100%; margin-bottom:10px;}
 .footer { clear:both; float:left; padding-left:0.5em; border-top:1px solid black; width:100%;}

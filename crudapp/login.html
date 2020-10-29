@@ -14,7 +14,7 @@
 
     <body>
       <div class="login-container">
-        <div class="title">Book collection</div>
+        <div class="title">Book collection<img src="/books/bookstack.svg"></div>
         <div class="topbanner">
             <div class="subtitle">Manage your books with ease</div>
             <div class="strut">
@@ -38,24 +38,36 @@
             <form id="register" class="registrationform" action="/auth/login" method="post">
                 <div class="callout">Manage your book collection with this handy tool.</div>
                 <div class="signupbanner"><div class="signupbannertext">Sign up for free</div></div>
-                <label for="email" aria-label="Enter a valid email address" data-balloon-pos="up-right">Email</label><input class="email" type="email" name="email" placeholder="yourname@yourdomain.org">
-                <label for="name" aria-label="Your name" data-balloon-pos="up-right">Name</label><input id="name" type="text" name="name" placeholder="Your Name">
-                <label for="password" data-balloon-length="large" aria-label="Password must be 8 or more characters and contain a capital, a number and a special character" data-balloon-pos="up-right">Password</label><input id="password1" type="password" name="password">
-                <label for="password2" aria-label="Both passwords must match" data-balloon-pos="up-right">Confirm password</label><input id="password2" type="password" name="password2">
+                <div class="field" aria-label="Enter a valid email address" data-balloon-pos="up-right">
+                    <label for="email">Email</label><input class="email" type="email" name="email" placeholder="yourname@yourdomain.org">
+                </div>
+                <div class="field" aria-label="Your name" data-balloon-pos="up-right">
+                    <label for="name">Name</label><input id="name" type="text" name="name" placeholder="Your Name">
+                </div>
+                <div class="field" data-balloon-length="large" aria-label="Password must be 8 or more characters and contain a capital, a number and a special character" data-balloon-pos="up-right">
+                    <label for="password">Password</label><input id="password1" type="password" name="password">
+                </div>
+                <div class="field" aria-label="Both passwords must match" data-balloon-pos="up-right">
+                    <label for="password2">Confirm password</label><input id="password2" type="password" name="password2">
+                </div>
                 <div id="registrationerror" class="servererror"></div>
                 <button id="loginbutton2" type="submit" value="Register" name="login" aria-label="Register your account" data-balloon-pos="up-right"><i class="fas fa-user-plus"></i></button> 
             </form>
             <form id="newpassword"  class="registrationform" action="/auth/newpassword" method="post">
                 <div class="callout">Manage your book collection with this handy tool.</div>
                 <div class="signupbanner"><div class="signupbannertext">Choose a new password</div></div>
-                <label for="password">Password</label><input id="newpassword1" type="password" name="password">
-                <label for="password2">Confirm password</label><input id="newpassword2" type="password" name="password2">
+                <div class="field" data-balloon-length="large" aria-label="Password must be 8 or more characters and contain a capital, a number and a special character" data-balloon-pos="up-right">
+                    <label for="password">Password</label><input id="newpassword1" type="password" name="password">
+                </div>
+                <div class="field" aria-label="Both passwords must match" data-balloon-pos="up-right">
+                    <label for="password2">Confirm password</label><input id="newpassword2" type="password" name="password2">
+                </div>
                 <input name="resetid" type="hidden">
                 <div id="registrationerror" class="servererror"></div>
                 <button id="loginbutton3" type="submit" value="Choose" name="choose" aria-label="Click to submit your new password" data-balloon-pos="up-right"><i class="fas fa-key"></i></i></button> 
             </form>
         </div>
-        <div class="footer"><i class="far fa-copyright"></i> 2020  Michel Anders (varkenvarken)  <a href="https://github.com/varkenvarken/dockerplayground"><i class="fab fa-github"></i></a></div>
+        <div class="footer" aria-label="This app is available on GitHub" data-balloon-pos="up-left"><i class="far fa-copyright"></i> 2020  Michel Anders (varkenvarken)  <a href="https://github.com/varkenvarken/dockerplayground"><i class="fab fa-github"></i></a></div>
       </div>
 
       <script type="text/javascript" src="https://cdn.datatables.net/v/bs4-4.1.1/jq-3.3.1/dt-1.10.22/b-1.6.4/b-colvis-1.6.4/cr-1.5.2/r-2.2.6/sl-1.3.1/datatables.min.js"></script>     
