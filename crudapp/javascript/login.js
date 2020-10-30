@@ -48,22 +48,22 @@ $(document).ready(function() {
     }
 
     if(getQueryVariable("failed")){
-        $("#loginerror").html("<p class='login-error'>Login failed</p>");
+        $(".loginerror").html("<div class='login-error'>Login failed</div>");
     }
     if(getQueryVariable("inuse")){
-        $("#registrationerror").html("<p class='login-error'>Email address already registered</p>");
+        $("#registrationerror").html("<div class='login-error'>Email address already registered</div>");
     }
     if(getQueryVariable("pending")){
-        $("#registrationerror").html("<p class='login-info'>Confirmation email sent. Please check your inbox</p>");
+        $("#registrationerror").html("<div class='login-info'>Confirmation email sent. Please check your inbox</div>");
     }
     if(getQueryVariable("await")){
-        $("#registrationerror").html("<p class='login-info'>Confirmation email sent again. Please check your inbox</p>");
+        $("#registrationerror").html("<div class='login-info'>Confirmation email sent again. Please check your inbox</div>");
     }
     if(getQueryVariable("confirmed")){
-        $("#loginerror").html("<p class='login-info'>Confirmation successful. Please log in</p>");
+        $(".loginerror").html("<div class='login-info'>Confirmation successful. Please log in</div>");
     }
     if(getQueryVariable("expired")){
-        $("#registrationerror").html("<p class='login-error'>Confirmation link expired. Please register to access the site</p>");
+        $("#registrationerror").html("<div class='login-error'>Confirmation link expired. Please register to access the site</div>");
     }
     
     $("#register").validate({
@@ -126,9 +126,11 @@ $(document).ready(function() {
     $("form.forgottenpassword").hide();
 
     // todo add email verification to forgottenpassword form
-    $("#forgotbutton").click(function(){
+    $("#forgotbutton").click(function(event){
         $("form.loginform").toggle();
         $("form.forgottenpassword").toggle();
+        event.stopImmediatePropagation();
+        return false;
     });
     
     // todo add password complexity check to choosepassword form

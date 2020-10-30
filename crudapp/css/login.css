@@ -1,0 +1,112 @@
+/* global css variables a.k.a. custom properties */
+/* change them to your liking */
+
+:root {
+    --base-color:black;
+    --inverted-color:white;
+    --accent-color:ghostwhite;
+    --placeholder-opacity:0.4;
+    --alert-color:darkred;
+}
+
+/* this responsive design has a breakpoint at 600px width */
+/* on larger screens it has two columns */
+/* everything relies heavily on CSS3 and flexbox layout, so */
+/* do not expect this to work on older browsers */
+
+* { box-sizing: border-box; }
+
+@media only screen and (max-width: 600px) {
+
+body        { width: 100%;  display: flex; flex-flow: row wrap; margin:0px;}
+
+.title      { flex: 1 1 100%; font-size:30px; font-weight:bold; text-align: center;}
+.title svg  { width:32px; margin-left:8px; margin-top:8px; margin-bottom:-4px;}
+.subtitle   { flex: 1 1 100%; font-size:20px; text-align: center; height:1.5em; padding-top:.1em;}
+
+.login                  { flex: 1 1 100%; display:flex; flex-flow: row-reverse wrap;}
+.login > button         { flex: 1 1 10%; }
+.login > form           { flex: 1 1 90%; display:flex; flex-flow: row nowrap;}
+.login > form > input   { flex: 1 1 40%; width:0;}
+.login > form > button  { flex: 0 0 24px; }
+.loginerror             { flex: 1 1 100%; }
+
+.logo       {flex: 1 1 100%; width:100%;}
+
+.forms                              { flex: 1 1 100%;}
+.forms > form                       { display:flex; flex-flow: row wrap;}
+.forms > form > div                 { flex: 1 1 100%; display:flex; flex-flow: row wrap;}
+.forms > form > div > label         { flex: 1 1 50%; }
+.forms > form > div > input         { flex: 1 1 50%; width:0;}
+.forms > form > div > label.error   { flex: 1 1 100%; }
+.forms > form > button              { flex: 1 1 24px; }
+.callout                            { font-size:18px; text-align: center; height:1.5em; display:block !important;}
+
+.footer     {flex: 1 1 100%; font-size:12px; text-align: center; padding-top:8px;}
+
+.login-error, .error { font-size:10px; }
+}
+
+@media only screen and (min-width: 601px) {
+
+body        { max-width:960px; width: 100%;  display: flex; flex-flow: row wrap; margin:auto;}
+
+.title      { flex: 1 1 100%; font-size:40px; font-weight:bold; text-align: center;}
+.title svg  { width:32px; margin-left:8px; margin-top:8px; margin-bottom:-4px;}
+.subtitle   { flex: 1 1 100%; font-size:24px; text-align: center; height:1.5em; padding-top:.1em;}
+
+.login                  { flex: 1 1 100%; display:flex; flex-flow: row-reverse wrap;}
+.login > button         { flex: 1 1 10%; }
+.login > form           { flex: 1 1 90%; display:flex; flex-flow: row nowrap;}
+.login > form > input   { flex: 1 1 40%; width:0;}
+.login > form > button  { flex: 0 0 24px; }
+.loginerror             { flex: 1 1 100%; }
+
+.logo       {flex: 1 1 60%; width:100%;}
+
+.forms                              { flex: 1 1 40%; margin-top:auto; margin-bottom:auto;}
+.forms > form                       { display:flex; flex-flow: row wrap;}
+.forms > form > div                 { flex: 1 1 100%; display:flex; flex-flow: row wrap;}
+.forms > form > div > label         { flex: 1 1 50%; }
+.forms > form > div > input         { flex: 1 1 50%; width:0;}
+.forms > form > div > label.error   { flex: 1 1 100%; }
+.forms > form > button              { flex: 1 1 24px; }
+.callout                            { font-size:24px; text-align: center; height:1.5em; display:block !important;}
+.field                              { margin-top: 0.25em; margin-bottom:0.25em; }
+.footer     {flex: 1 1 100%; font-size:14px; text-align: center; padding-top:8px; border-top:1px solid var(--base-color);}
+
+.login-error, .error { font-size:10px; }
+}
+
+
+/* general styling, fonts and colors ; no sizes or dimensions here except for border thickness */
+
+*           { color:var(--base-color); background-color:var(--inverted-color);}
+
+.title      { font-family: 'Roboto', sans-serif; }
+.subtitle   { font-family: 'Roboto', sans-serif; color:var(--inverted-color); background-color:var(--base-color);}
+.login      { font-family: 'Open Sans', sans-serif; }
+.slogan     { font-family: 'Open Sans', sans-serif; }
+.forms      { font-family: 'Open Sans', sans-serif; }
+.callout    { font-family: 'Open Sans', sans-serif; color:var(--inverted-color); background-color:var(--base-color);}
+.footer     { font-family: 'Roboto', sans-serif; }
+
+input, button { border:1px solid var(--base-color);}
+button        { background-color: var(--accent-color); }
+
+.login-error, .error { color:var(--alert-color); font-family: 'Open Sans', sans-serif;}
+
+svg         { fill:var(--base-color); }
+/* it's 2020 and still we need to include browser specific hacks ... :-( */
+::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+  color: var(--base-color);
+  opacity: var(--placeholder-opacity);
+}
+:-ms-input-placeholder { /* Internet Explorer 10-11 */
+  color: var(--base-color);
+  opacity: var(--placeholder-opacity);
+}
+::-ms-input-placeholder { /* Microsoft Edge */
+  color: var(--base-color);
+  opacity: var(--placeholder-opacity);
+}
