@@ -128,6 +128,7 @@ class Book(Base):
     edited      = Column(DateTime(), default=datetime.now())
 
 
+#  TODO exlude PATCH from allowed methods, we don't need it
 class BookCollectionResource(CollectionResource):
     model = Book
 
@@ -146,6 +147,7 @@ class BookCollectionResource(CollectionResource):
         return query.filter(Book.owner == self.q_ownerid)
 
     def before_post(self, req, resp, db_session, resource, *args, **kwargs):
+        #  TODO note that we do net yet verify if verifysession returns an OK
         r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
         print(r.text, flush=True)
         print(resource.owner, resource.title, flush=True)
@@ -153,9 +155,37 @@ class BookCollectionResource(CollectionResource):
         resource.owner = int(kvs['id'])
 
 
+def check_ownerid(req):
+    #  TODO note that we do net yet verify if verifysession returns an OK
+    #  also, we could check whether ownerid matches, if not someone is messing around
+    for k,v in req.context['doc'].items():
+        print(k,v,flush=True)
+    print(req.context['doc']['owner'], flush=True)
+    r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
+    print(r.text, flush=True)
+    return req.context['doc']['owner'] == keyvals(r.text)['id']    
+    
 class BookResource(SingleResource):
     model = Book
 
+    def on_get(self, req, resp):
+        #  TODO note that we do net yet verify if verifysession returns an OK
+        if req.cookies and 'session' in req.cookies:
+            print('cookies', req.cookies, flush=True)
+            r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
+            print(r.text, flush=True)
+            self.q_ownerid = keyvals(r.text)['id']
+        else:
+            raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+        super().on_get(req, resp)
+
+    def get_filter(self, req, resp, query, *args, **kwargs):
+        return query.filter(Book.owner == self.q_ownerid)
+
+    def on_put(self, req, resp, *args, **kwargs):
+        if not check_ownerid(req):
+            raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+        super().on_put(req, resp, *args, **kwargs)
 
 class Image(Base):
     __tablename__ = 'images'
