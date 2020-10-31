@@ -73,6 +73,14 @@ def firstbytes(ob):
     return None
 
 
+def keyvals(s):
+    d = {}
+    for line in s.split('\n'):
+        k, v = line.split('=', 1)
+        d[k] = v
+    return d
+
+
 class HealthResource:
     """
     A static resource to serve as a Docker healthcheck.
@@ -105,7 +113,7 @@ Base = declarative_base()
 class Book(Base):
     __tablename__ = 'books'
     id          = Column(Integer, primary_key=True)
-    # TODO add owner
+    owner       = Column(Integer, nullable=False)
     title       = Column(String(100))
     author      = Column(String(50))
     isbn        = Column(String(15))  # either 10 or 13
@@ -124,13 +132,25 @@ class BookCollectionResource(CollectionResource):
     model = Book
 
     def on_get(self, req, resp):
+        #  TODO note that we do net yet verify if verifysession returns an OK
         if req.cookies and 'session' in req.cookies:
             print('cookies', req.cookies, flush=True)
             r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
-            print(r, flush=True)
+            print(r.text, flush=True)
+            self.q_ownerid = keyvals(r.text)['id']
         else:
             raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
         super().on_get(req, resp)
+
+    def get_filter(self, req, resp, query, *args, **kwargs):
+        return query.filter(Book.owner == self.q_ownerid)
+
+    def before_post(self, req, resp, db_session, resource, *args, **kwargs):
+        r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
+        print(r.text, flush=True)
+        print(resource.owner, resource.title, flush=True)
+        kvs = keyvals(r.text)
+        resource.owner = int(kvs['id'])
 
 
 class BookResource(SingleResource):

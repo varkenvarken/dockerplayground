@@ -20,6 +20,11 @@ $(document).ready(function() {
         readonly:true, disabled:true, visible:false
         },
         {
+        data: "owner",
+        title: "Owner",
+        readonly:true, disabled:true, visible:false
+        },
+        {
         data: "author",
         title: "Author", width:"20%"
         },

@@ -234,7 +234,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 for s in session.query(Session).filter(Session.id == params['sessionid']):
                     print(s.id, s.user.email, flush=True)
                     self.send_response(HTTPStatus.OK, "valid session")
-                    content = bytes(s.user.email, 'utf-8')
+                    content = bytes(f'email={s.user.email}\nid={s.user.id}', 'utf-8')
                     print('found', content)
                     break
                 if not content:
