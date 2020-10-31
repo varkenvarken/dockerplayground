@@ -1,31 +1,49 @@
 img.coverart { height:48px; margin:0; padding:0; }
 
-.title {font-size: 72px; font-weight:bold;}
-.title img { width:72px; margin-left:32px; padding-bottom:8px;}
-.topbanner {background-color:black; height:40px; display: flex; align-items: center;}
-.subtitle { font-size:24px; color:white; padding-left:0.5em; width:50%}
+* { box-sizing: border-box; }
 
-.login-container { width:80%; max-width:960px; margin: 0 auto;}
-.subtitle, .content { clear:both; float:left;}
-.content {width:60%}
-.logo {width:100%}
-form { float:right; width:100%}
-form.loginform, form.forgottenpassword { width:80%; }
-.strut {width:50%}
-.loginform input, .forgottenpassword input { width:100px; float:right;}
-.loginform button, .forgottenpassword button, #forgotbutton { float:right;}
+/* AltEditor overrides to prevent some read only cols from showing at all */
 
-.registrationform {width:40%; margin-top:40px;}
-.field { width:100%;}
-.signupbanner { background-color:black; width:100%; margin-bottom:10px;}
-.signupbannertext { font-size:24px; color:white; padding-left:0.5em;}
-.registrationform label { width:40%; padding-left:0.5em;}
-.registrationform input { width:60%; }
-.registrationform button { clear:both; float:left; width:100%;}
-.callout {font-size:24px; width:100%; margin-bottom:10px;}
-.footer { clear:both; float:left; padding-left:0.5em; border-top:1px solid black; width:100%;}
-.footer a { color:black; }
+#alteditor-row-coverart, #alteditor-row-isamended, #alteditor-row-amended, #alteditor-row-isedited, #alteditor-row-edited { display:none !important; }
+div.altEditor-modal div.form-group.row {margin-bottom:-1rem !important;}
 
-#loginerror {color:white;}
-#registrationerror { clear:both; float:left; width:100%; height:20px; }
-div.error { font-size:12px;}
+@media only screen and (max-width: 600px) {
+
+body        { width: 100%;  display: flex; flex-flow: row wrap; margin:0px;}
+.title      { flex: 1 1 100%; font-size:30px; font-weight:bold; text-align: center;}
+.title svg  { width:32px; margin-left:8px; margin-top:8px; margin-bottom:-4px;}
+.footer     {flex: 1 1 100%; font-size:12px; text-align: center; padding-top:8px;}
+}
+
+@media only screen and (min-width: 601px) {
+
+body        { max-width:960px; width: 100%;  display: flex; flex-flow: row wrap; margin:auto;}
+.title      { flex: 1 1 100%; font-size:40px; font-weight:bold; text-align: center;}
+.title svg  { width:32px; margin-left:8px; margin-top:8px; margin-bottom:-4px;}
+.footer     {flex: 1 1 100%; font-size:14px; text-align: center; padding-top:8px; border-top:1px solid var(--base-color);}
+}
+
+
+/* general styling, fonts and colors ; no sizes or dimensions here except for border thickness */
+
+*           { color:var(--base-color); background-color:var(--inverted-color);}
+
+.title      { font-family: 'Roboto', sans-serif; }
+.footer     { font-family: 'Roboto', sans-serif; }
+
+svg         { fill:var(--base-color); }
+/* it's 2020 and still we need to include browser specific hacks ... :-( */
+::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+  color: var(--base-color);
+  opacity: var(--placeholder-opacity);
+}
+:-ms-input-placeholder { /* Internet Explorer 10-11 */
+  color: var(--base-color);
+  opacity: var(--placeholder-opacity);
+}
+::-ms-input-placeholder { /* Microsoft Edge */
+  color: var(--base-color);
+  opacity: var(--placeholder-opacity);
+}
+
+
