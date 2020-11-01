@@ -74,10 +74,17 @@ def firstbytes(ob):
 
 
 def keyvals(s):
+    """
+    Return a dictionary of key-values pairs.
+
+    s is a string of lines separated by newlines.
+    Each line is of the form <key>=<value>.
+    Leading and trailing whitespace is removed from the key.
+    """
     d = {}
     for line in s.split('\n'):
         k, v = line.split('=', 1)
-        d[k] = v
+        d[k.strip()] = v
     return d
 
 
@@ -89,22 +96,6 @@ class HealthResource:
         resp.status = falcon.HTTP_200
         resp.content_type = 'text/html'
         resp.body = b'I am healthy'
-
-
-class LoginResource:
-    """
-    A resource to identify and authenticate people.
-    """
-    def on_get(self, req, resp):
-        if req.cookies:
-            print('cookies', req.cookies, flush=True)
-        if req.params:
-            print('params', req.params)
-
-        raise falcon.HTTPNotFound('/auth/login')
-
-        resp.set_cookie('session', 'oink')
-        raise falcon.HTTPNotFound('/')
 
 
 Base = declarative_base()
@@ -122,70 +113,78 @@ class Book(Base):
     value       = Column(Numeric(8, 2), default=0)   # an estimate, currency is supposed to be EUR
     created     = Column(DateTime(), default=datetime.now())
     coverart    = Column(String(150))  # a URL
-    isamended   = Column(Boolean(), default=False)   # True is bot has amended any value
+    isamended   = Column(Boolean(), default=False)   # True if bot has amended any value
     amended     = Column(DateTime(), default=datetime.now())
     isedited    = Column(Boolean(), default=False)   # True if person has overruled bot amendation
     edited      = Column(DateTime(), default=datetime.now())
 
 
-#  TODO exlude PATCH from allowed methods, we don't need it
-class BookCollectionResource(CollectionResource):
+# TODO make authserver url an environment variable
+# we have excluded PATCH from the allowed methods in the collection as
+# well as in the single resource, because we don't need it.
+
+class VerificationMixin:
+
+    def verify_session(self, req, resp):
+        self.q_ownerid = None
+        self.q_name = None
+        self.q_superuser = False
+        if req.cookies and 'session' in req.cookies:
+            r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
+            if r.status_code == 200:
+                try:
+                    user_attrs = keyvals(r.text)
+                    self.q_ownerid = user_attrs['id']  # if this key isn't present, we fail
+                    self.q_name = user_attrs['name'] if 'name' in user_attrs else None
+                    self.q_superuser = user_attrs['superuser'] if 'superuser' in user_attrs else False
+                    return
+                except KeyError:
+                    pass  # fall through on missing keys
+        raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+
+
+class BookCollectionResource(CollectionResource, VerificationMixin):
     model = Book
+    methods = ['GET', 'POST']
 
     def on_get(self, req, resp):
-        #  TODO note that we do net yet verify if verifysession returns an OK
-        if req.cookies and 'session' in req.cookies:
-            print('cookies', req.cookies, flush=True)
-            r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
-            print(r.text, flush=True)
-            self.q_ownerid = keyvals(r.text)['id']
-        else:
-            raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+        self.verify_session(req, resp)
         super().on_get(req, resp)
 
     def get_filter(self, req, resp, query, *args, **kwargs):
+        print(f'id: {self.q_ownerid} name:{self.q_name} super:{self.q_superuser}', flush=True)
+        if self.q_superuser:
+            return query
         return query.filter(Book.owner == self.q_ownerid)
 
     def before_post(self, req, resp, db_session, resource, *args, **kwargs):
-        #  TODO note that we do net yet verify if verifysession returns an OK
-        r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
-        print(r.text, flush=True)
-        print(resource.owner, resource.title, flush=True)
-        kvs = keyvals(r.text)
-        resource.owner = int(kvs['id'])
+        self.verify_session(req, resp)
+        resource.owner = int(self.q_ownerid)
 
 
-def check_ownerid(req):
-    #  TODO note that we do net yet verify if verifysession returns an OK
-    #  also, we could check whether ownerid matches, if not someone is messing around
-    for k,v in req.context['doc'].items():
-        print(k,v,flush=True)
-    print(req.context['doc']['owner'], flush=True)
-    r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
-    print(r.text, flush=True)
-    return req.context['doc']['owner'] == keyvals(r.text)['id']    
-    
-class BookResource(SingleResource):
+class BookResource(SingleResource, VerificationMixin):
     model = Book
+    methods = ['GET', 'PUT', 'DELETE']
+
+    def check_ownerid(self, req):
+        if ('doc' in req.context) and ('owner' in req.context['doc']) and (req.context['doc']['owner'] == self.q_ownerid):
+            return
+        raise falcon.HTTPUnauthorized('/auth/login')
 
     def on_get(self, req, resp):
-        #  TODO note that we do net yet verify if verifysession returns an OK
-        if req.cookies and 'session' in req.cookies:
-            print('cookies', req.cookies, flush=True)
-            r = requests.post('http://authserver:8005/verifysession', data={'sessionid': req.cookies['session']})
-            print(r.text, flush=True)
-            self.q_ownerid = keyvals(r.text)['id']
-        else:
-            raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+        self.verify_session(req, resp)
         super().on_get(req, resp)
 
-    def get_filter(self, req, resp, query, *args, **kwargs):
-        return query.filter(Book.owner == self.q_ownerid)
-
     def on_put(self, req, resp, *args, **kwargs):
-        if not check_ownerid(req):
-            raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+        self.verify_session(req, resp)
+        self.check_ownerid(req)
         super().on_put(req, resp, *args, **kwargs)
+
+    def on_delete(self, req, resp, *args, **kwargs):
+        self.verify_session(req, resp)
+        self.check_ownerid(req)
+        super().on_delete(req, resp, *args, **kwargs)
+
 
 class Image(Base):
     __tablename__ = 'images'
@@ -336,7 +335,6 @@ if __name__ == '__main__':
     app.add_route('/images/{id}', ImageResource(db_engine))
     app.add_route('/health', HealthResource())
     app.add_route('/metrics', prometheus)
-    app.add_route('/login', LoginResource())
 
     with make_server('', args.port, app) as httpd:
         print(f"Serving on port {args.port} ...", file=sys.stderr)
