@@ -65,6 +65,8 @@ class User(Base):
     id          = Column(Integer, primary_key=True)
     email       = Column(String(100), unique=True)
     password    = Column(String(100))
+    name        = Column(String(100))
+    superuser   = Column(Boolean(), default=False)
     created     = Column(DateTime(), default=datetime.now())
     active      = Column(Boolean(), default=True)
     attempts    = Column(Integer, default=0)
@@ -84,6 +86,7 @@ class PendingUser(Base):
     __tablename__ = 'pendinguser'
     id          = Column(String(34), primary_key=True)  # holds a guid
     email       = Column(String(100), unique=True)
+    name        = Column(String(100))
     password    = Column(String(100))
     created     = Column(DateTime(), default=datetime.now())
 
@@ -130,6 +133,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         v = urllib.parse.unquote(kv[1])
                     params[k] = v
 
+# TODO lowercase email (so that you can't squat an email address by changin capitalization
             if self.path == '/login':
                 print('login / register /forgot')
                 for k in params:
@@ -164,28 +168,21 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 elif params['login'] == 'Register':
                     print('register')
                     # TODO validate email (rough format) and password (complexity)
+
+                    # We always return the same response (and redirect) no matter
+                    # whether the email is in use or not, to prevent indexing
                     if user:
-                        print('email found', flush=True)
-                        self.send_response(HTTPStatus.SEE_OTHER, "Registration failed email address in use")
-                        self.send_header("Location", "/books/login.html?inuse")
-                        self.send_session_cookie(None)
+                        print('email already in use', flush=True)
                     else:
                         user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
-                        if user:
+                        if user:  # we delete previous pending registration to prevent database overfilling
+                            # TODO we should make sure that a limited number of emails are sent to the same address
                             print('previous registration not yet confirmed', flush=True)
-                            # previous registration but not yet confirmed
-                            self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email resent")
-                            self.send_header("Location", "/books/login.html?await")
                             session.delete(user)
                             session.commit()
                         else:
                             print('first registration', flush=True)
-                            # first registration attempt
-                            self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email sent")
-                            self.send_header("Location", "/books/login.html?pending")
-                        # TODO this could fail with a unique constraint violation if two people choose the same email at the same time
-                        self.send_session_cookie(None)
-                        pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']))
+                        pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']), name=params['name'])
                         session.add(pu)
                         session.commit()
                         user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
@@ -201,6 +198,9 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
                         """,
                              "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+                    self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email sent to email address")
+                    self.send_header("Location", "/books/login.html?pending")
+                    self.send_session_cookie(None)
                 elif params['login'] == 'Forgot':
                     print('forgot')
                     # TODO validate email (rough format) and password (complexity)
@@ -234,7 +234,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 for s in session.query(Session).filter(Session.id == params['sessionid']):
                     print(s.id, s.user.email, flush=True)
                     self.send_response(HTTPStatus.OK, "valid session")
-                    content = bytes(f'email={s.user.email}\nid={s.user.id}', 'utf-8')
+                    content = bytes(f'email={s.user.email}\nid={s.user.id}\nname={s.user.name}\nsuperuser={s.user.superuser}', 'utf-8')
                     print('found', content)
                     break
                 if not content:
@@ -326,7 +326,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         try:
             global DBSession
             session = DBSession()
-
+            # TODO verify/sanitize query parameters before acting upon them w. DB queries!
             url = urlparse(self.path)
             print(url, flush=True)
             if url.path == '/confirmregistration':
@@ -334,7 +334,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 user = session.query(PendingUser).filter(PendingUser.id == url.query).first()
                 if user:
                     # copy user to User table
-                    ns = User(email=user.email, password=user.password)
+                    ns = User(email=user.email, password=user.password, name=user.name)
                     session.add(ns)
                     session.commit()
                     # redirect to login page
@@ -443,7 +443,7 @@ if __name__ == '__main__':
         print(s.id, s.email)
         session.delete(s)
     session.commit()
-    ns = User(email=username, password=newpassword(password))
+    ns = User(email=username, password=newpassword(password), name='Administrator', superuser=True)
     session.add(ns)
     session.commit()
 

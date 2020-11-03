@@ -134,9 +134,9 @@ class VerificationMixin:
             if r.status_code == 200:
                 try:
                     user_attrs = keyvals(r.text)
-                    self.q_ownerid = user_attrs['id']  # if this key isn't present, we fail
+                    self.q_ownerid = int(user_attrs['id'])  # if this key isn't present, we fail
                     self.q_name = user_attrs['name'] if 'name' in user_attrs else None
-                    self.q_superuser = user_attrs['superuser'] if 'superuser' in user_attrs else False
+                    self.q_superuser = user_attrs['superuser'] == 'True' if 'superuser' in user_attrs else False
                     return
                 except KeyError:
                     pass  # fall through on missing keys
