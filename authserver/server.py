@@ -24,7 +24,7 @@ from http.server import BaseHTTPRequestHandler
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 import urllib
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote_plus
 import sys
 from datetime import datetime
 from uuid import uuid4 as guid
@@ -127,10 +127,10 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             for p in body.decode('utf-8').split('&'):
                 kv = p.split('=', maxsplit=1)
                 if kv:
-                    k = urllib.parse.unquote(kv[0])
+                    k = urllib.parse.unquote_plus(kv[0])
                     v = ''
                     if len(kv) > 1:
-                        v = urllib.parse.unquote(kv[1])
+                        v = urllib.parse.unquote_plus(kv[1])
                     params[k] = v
 
 # TODO lowercase email (so that you can't squat an email address by changin capitalization
