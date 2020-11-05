@@ -2,14 +2,14 @@
 $(document).ready(function() {
 
     // https://jqueryvalidation.org/
-    // at least 1 char out of each of the character classes and >= 8 long
+    // at least 1 char out of each of the character classes and between 8-64 long; no characters outside classes
 	$.validator.addMethod("complex", function(value) {
         var anUpperCase = /[A-Z]/;
         var aLowerCase = /[a-z]/; 
         var aNumber = /[0-9]/;
-        var aSpecial = /[!|@#$%^&*()-_.,<>?/\{}]/;
+        var aSpecial = /[ !|@#$%^&*()\-_.,<>?/\\{}\[\]]/;
 
-        if(value.length < 8){ return false; }
+        if(value.length < 8 || value.length > 64){ return false; }
 
         var numUpper = 0;
         var numLower = 0;
@@ -27,7 +27,9 @@ $(document).ready(function() {
         }
 
         if(numUpper < 1 || numLower < 1 || numNums < 1 || numSpecials < 1){ return false; }
-        
+
+        if(numUpper + numLower + numNums + numSpecials != value.length){ return false; }
+
         return true;
 	}, '<i class="fas fa-exclamation-triangle"></i> Password not complex enough');
 

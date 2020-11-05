@@ -23,7 +23,6 @@
 from http.server import BaseHTTPRequestHandler
 from http import HTTPStatus
 from http.cookies import SimpleCookie
-import urllib
 from urllib.parse import urlparse, unquote_plus
 import sys
 from datetime import datetime
@@ -42,6 +41,15 @@ from sqlalchemy.orm import relationship, sessionmaker
 
 from smtp import fetch_smtp_params, mail
 
+from re import compile
+
+SESSIONID_pattern   = compile(r"[01-9a-f]{32}")                 # 32 hexadecimal lowercase characters
+EMAIL_pattern       = compile(r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*")  # rough check: something@subdomain.domain.toplevel  any number of subdomains but cannot start or end with a dot and must contain a domain and a toplevel
+PASSWORD_lower      = compile(r"[a-z]")
+PASSWORD_upper      = compile(r"[A-Z]")
+PASSWORD_digit      = compile(r"[01-9]")
+PASSWORD_special    = compile(r"[ !|@#$%^&*()\-_.,<>?/\\{}\[\]]")
+
 
 def newpassword(password):
     salt = urandom(16)
@@ -55,6 +63,57 @@ def checkpassword(password, reference):
     dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
     print(f"{password} + {salt.hex()} -> >{salt.hex() + dk.hex()}< == >{reference}<")
     return compare_digest(salt.hex() + dk.hex(), reference)
+
+
+def allowed_sessionid(s):
+    if len(s) > 32:  # protect against overly long strings
+        return False
+    return bool(SESSIONID_pattern.fullmatch(s))
+
+
+def allowed_email(s):
+    """
+    Check if s is a valid email address format.
+    """
+    if len(s) > 120:  # protect against overly long strings
+        return False
+    return bool(EMAIL_pattern.fullmatch(s))
+
+
+def verify_login_params(params):
+
+    if 'login' not in params:
+        return False
+    if params['login'] not in ('Login', 'Register', 'Forgot'):
+        return False
+    pset = set(params.keys())
+    if params['login'] == 'Login':
+        if pset != {'login', 'password', 'email'}:
+            return False
+    elif params['login'] == 'Register':
+        if pset != {'login', 'password', 'password2', 'email', 'name'}:
+            return False
+    elif params['login'] == 'Forgot':
+        if pset != {'login', 'email'}:
+            return False
+    else:
+        return False
+    return True
+
+
+def allowed_password(s):
+    if len(s) > 64 or len(s) < 8:
+        return False
+    nlower = len(PASSWORD_lower.findall(s))
+    nupper = len(PASSWORD_upper.findall(s))
+    ndigit = len(PASSWORD_digit.findall(s))
+    nspecial = len(PASSWORD_special.findall(s))
+    print(f'nlower {nlower} nupper {nupper} ndigit {ndigit} nspecial {nspecial} total {nlower + nupper + ndigit + nspecial} len {len(s)}')
+    if nlower < 1 or nupper < 1 or ndigit < 1 or nspecial < 1:
+        return False
+    if nlower + nupper + ndigit + nspecial != len(s):
+        return False
+    return True
 
 
 Base = declarative_base()
@@ -105,8 +164,14 @@ class PasswordReset(Base):
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
+        # check if an X-header is present
+        # this signifies that the request was forwarded by traefik
+        # i.e. is coming from the outside
+        xheaders_present = False
         for h in self.headers:
             print(h, self.headers[h], flush=True)
+            if h.startswith('X-'):
+                xheaders_present = True
         try:
             global DBSession
             session = DBSession()
@@ -127,111 +192,136 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             for p in body.decode('utf-8').split('&'):
                 kv = p.split('=', maxsplit=1)
                 if kv:
-                    k = urllib.parse.unquote_plus(kv[0])
+                    k = unquote_plus(kv[0])
                     v = ''
                     if len(kv) > 1:
-                        v = urllib.parse.unquote_plus(kv[1])
+                        v = unquote_plus(kv[1])
                     params[k] = v
 
-# TODO lowercase email (so that you can't squat an email address by changin capitalization
             if self.path == '/login':
-                print('login / register /forgot')
-                for k in params:
-                    print("  ", k, params[k])
-                print(flush=True)
-                user = session.query(User).filter(User.email == params['email']).first()
-                if ('login' not in params) or (params['login'] not in ('Login', 'Register', 'Forgot')):
-                    self.send_error(HTTPStatus.BAD_REQUEST, "Not found")
-                elif params['login'] == 'Login':
-                    print('login')
-                    if user:
-                        print('valid user found', user.email, user.password)
-                        if checkpassword(params['password'], user.password):
-                            self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
-                            self.send_header("Location", "/books")
-                            for s in session.query(Session).filter(Session.userid == user.id):
-                                print('old session deleted', s.id, s.user.email)
-                                session.delete(s)
-                            ns = Session(userid=user.id, id=guid().hex)
-                            session.add(ns)
-                            self.send_session_cookie(ns.id)
-                            print('user authenticated', flush=True)
-                        else:
-                            self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
-                            self.send_header("Location", "/books/login.html?failed")
-                            self.send_session_cookie(None)
-                            print('user authentication failed', flush=True)
-                    else:
+                print('login / register / forgot', flush=True)
+
+                # verify necessary parameters are present
+                if not verify_login_params(params):
+                    print(f"/login input parameters not present or not correct")
+                    for k in params:
+                        print(f"\t{k}, {params[k]}")
+                    print(flush=True)
+
+                    self.send_error(HTTPStatus.SEE_OTHER, "Login failed")
+                    self.send_header("Location", "/books/login.html?failed")
+                    self.send_session_cookie(None)
+                else:
+                    email = params['email'].lower()
+                    if not allowed_email(email):
+                        print(f"/login invalid email format [{email[:120]}]")
                         self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
                         self.send_header("Location", "/books/login.html?failed")
                         self.send_session_cookie(None)
-                elif params['login'] == 'Register':
-                    print('register')
-                    # TODO validate email (rough format) and password (complexity)
-
-                    # We always return the same response (and redirect) no matter
-                    # whether the email is in use or not, to prevent indexing
-                    if user:
-                        print('email already in use', flush=True)
                     else:
-                        user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
-                        if user:  # we delete previous pending registration to prevent database overfilling
-                            # TODO we should make sure that a limited number of emails are sent to the same address
-                            print('previous registration not yet confirmed', flush=True)
-                            session.delete(user)
-                            session.commit()
-                        else:
-                            print('first registration', flush=True)
-                        pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']), name=params['name'])
-                        session.add(pu)
-                        session.commit()
-                        user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
-                        for c in PendingUser.__table__.c.keys():
-                            print(c, getattr(user, c))
-                        u, p, s = fetch_smtp_params()
-                        mail(f"""
-                        Hi,
+                        user = session.query(User).filter(User.email == email).first()
+                        if params['login'] == 'Login':
+                            print('login')
+                            if not allowed_password(params['password']):
+                                print(f"/login invalid password format [{params['password'][:70]}]")
+                                self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
+                                self.send_header("Location", "/books/login.html?failed")
+                                self.send_session_cookie(None)
+                            elif user:
+                                print('valid user found', user.email)
+                                if checkpassword(params['password'], user.password):
+                                    self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
+                                    self.send_header("Location", "/books")
+                                    for s in session.query(Session).filter(Session.userid == user.id):
+                                        session.delete(s)
+                                    ns = Session(userid=user.id, id=guid().hex)
+                                    session.add(ns)
+                                    self.send_session_cookie(ns.id)
+                                    print('user authenticated', flush=True)
+                                else:
+                                    self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
+                                    self.send_header("Location", "/books/login.html?failed")
+                                    self.send_session_cookie(None)
+                                    print('user authentication failed', flush=True)
+                            else:
+                                print(f'user authentication failed, not a known user {email}', flush=True)
+                                self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
+                                self.send_header("Location", "/books/login.html?failed")
+                                self.send_session_cookie(None)
+                        elif params['login'] == 'Register':
+                            print('register')
+                            # TODO validate email (rough format) and password (complexity)
 
-                        Please confirm your registration on Book collection.
+                            # We always return the same response (and redirect) no matter
+                            # whether the email is in use or not, to prevent indexing
+                            if user:
+                                print('email already in use', flush=True)
+                            else:
+                                user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
+                                if user:  # we delete previous pending registration to prevent database overfilling
+                                    # TODO we should make sure that a limited number of emails are sent to the same address
+                                    print('previous registration not yet confirmed', flush=True)
+                                    session.delete(user)
+                                    session.commit()
+                                else:
+                                    print('first registration', flush=True)
+                                pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']), name=params['name'])
+                                session.add(pu)
+                                session.commit()
+                                user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
+                                for c in PendingUser.__table__.c.keys():
+                                    print(c, getattr(user, c))
+                                u, p, s = fetch_smtp_params()
+                                mail(f"""
+                                Hi,
 
-                        https://server.michelanders.nl/auth/confirmregistration?{pu.id}
+                                Please confirm your registration on Book collection.
 
-                        """,
-                             "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
-                    self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email sent to email address")
-                    self.send_header("Location", "/books/login.html?pending")
-                    self.send_session_cookie(None)
-                elif params['login'] == 'Forgot':
-                    print('forgot')
-                    # TODO validate email (rough format) and password (complexity)
+                                https://server.michelanders.nl/auth/confirmregistration?{pu.id}
 
-                    # we always send the same response, no matter if the user exists or not
-                    self.send_response(HTTPStatus.SEE_OTHER, "Email sent")
-                    self.send_header("Location", "/books/login.html?checkemail")
-                    self.send_session_cookie(None)
+                                """,
+                                     "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+                            self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email sent to email address")
+                            self.send_header("Location", "/books/login.html?pending")
+                            self.send_session_cookie(None)
+                        elif params['login'] == 'Forgot':
+                            print('forgot')
+                            # TODO validate email (rough format) and password (complexity)
 
-                    user = session.query(User).filter(User.email == params['email']).first()
-                    if not user:  # no user found but we are not providing this information
-                        print('no user found', flush=True)
-                    else:
-                        pr = PasswordReset(id=guid().hex, userid=user.id)
-                        session.add(pr)
-                        session.commit()
-                        u, p, s = fetch_smtp_params()
-                        mail(f"""
-                        Hi,
+                            # we always send the same response, no matter if the user exists or not
+                            self.send_response(HTTPStatus.SEE_OTHER, "Email sent")
+                            self.send_header("Location", "/books/login.html?checkemail")
+                            self.send_session_cookie(None)
 
-                        We received a request to reset your password. If it wasn't you, please ignore this message.
-                        Otherwise, follow this link and select a new password.
+                            user = session.query(User).filter(User.email == params['email']).first()
+                            if not user:  # no user found but we are not providing this information
+                                print('no user found', flush=True)
+                            else:
+                                pr = PasswordReset(id=guid().hex, userid=user.id)
+                                session.add(pr)
+                                session.commit()
+                                u, p, s = fetch_smtp_params()
+                                mail(f"""
+                                Hi,
 
-                        https://server.michelanders.nl/auth/resetpassword?{pr.id}
+                                We received a request to reset your password. If it wasn't you, please ignore this message.
+                                Otherwise, follow this link and select a new password.
 
-                        """,
-                             "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+                                https://server.michelanders.nl/auth/resetpassword?{pr.id}
+
+                                """,
+                                     "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
 
             elif self.path == '/verifysession':
                 print('verifysession', flush=True)
-                for s in session.query(Session).filter(Session.id == params['sessionid']):
+                if xheaders_present:
+                    self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+                    print('unauthorized, verifysession called from outside', flush=True)
+                sessionid = params['sessionid']
+                if not allowed_sessionid(sessionid):
+                    self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+                    print('unauthorized, sessionid does not have proper format [{sessionid[:80]}]', flush=True)
+                for s in session.query(Session).filter(Session.id == sessionid):
                     print(s.id, s.user.email, flush=True)
                     self.send_response(HTTPStatus.OK, "valid session")
                     content = bytes(f'email={s.user.email}\nid={s.user.id}\nname={s.user.name}\nsuperuser={s.user.superuser}', 'utf-8')
@@ -239,7 +329,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     break
                 if not content:
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-                    print('unauthorized', flush=True)
+                    print('unauthorized, no valid session', flush=True)
                 else:
                     self.send_response(HTTPStatus.OK, "valid session")
                     print('ok authorized', flush=True)
