@@ -27,21 +27,25 @@ from urllib.parse import urlparse, unquote_plus
 import sys
 from datetime import datetime
 from uuid import uuid4 as guid
-
 from hashlib import pbkdf2_hmac
 from hmac import compare_digest
 from os import urandom
 import os
-
+from re import compile
+from smtp import fetch_smtp_params, mail
 from traceback import print_exc
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship, sessionmaker
 
-from smtp import fetch_smtp_params, mail
+from loguru import logger
 
-from re import compile
+
+# TODO make loglevel configurable via environment variable
+logger.remove()
+logger.add(sys.stderr, level="DEBUG")
+
 
 SESSIONID_pattern   = compile(r"[01-9a-f]{32}")                 # 32 hexadecimal lowercase characters
 EMAIL_pattern       = compile(r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*")  # rough check: something@subdomain.domain.toplevel  any number of subdomains but cannot start or end with a dot and must contain a domain and a toplevel
@@ -163,13 +167,26 @@ class PasswordReset(Base):
 # and nothing is returned. That causes a 502 Bad gateway in Traefik
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
+    def log_message(self, format, *args):
+        logger.trace(f"{self.address_string()} {format % args}")
+
+    def login_failed(self):
+        self.send_error(HTTPStatus.SEE_OTHER, "Login failed")
+        self.send_header("Location", "/books/login.html?failed")
+        self.send_session_cookie(None)
+
     def do_POST(self):
         # check if an X-header is present
         # this signifies that the request was forwarded by traefik
         # i.e. is coming from the outside
+
+        fromip = self.headers['X-Forwarded-For'] if 'X-Forwarded-For' in self.headers else 'internal net'
+        logger.info(self.address_string())
+        logger.info(f'POST from {fromip}')
+
         xheaders_present = False
         for h in self.headers:
-            print(h, self.headers[h], flush=True)
+            logger.debug(f'{h}: {self.headers[h]}')
             if h.startswith('X-'):
                 xheaders_present = True
         try:
@@ -187,6 +204,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers['Content-Length'])
             body = self.rfile.read(content_length)
             if len(body) > 1000:
+                logger.info('bad request: body tool large')
                 self.send_error(HTTPStatus.BAD_REQUEST, "Post request body too large")
                 return None
             for p in body.decode('utf-8').split('&'):
@@ -199,36 +217,26 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     params[k] = v
 
             if self.path == '/login':
-                print('login / register / forgot', flush=True)
-
                 # verify necessary parameters are present
                 if not verify_login_params(params):
-                    print(f"/login input parameters not present or not correct")
+                    logger.info("/login input parameters not present or not correct")
                     for k in params:
-                        print(f"\t{k}, {params[k]}")
-                    print(flush=True)
+                        logger.info(f"\t{k}, {params[k]}")
 
-                    self.send_error(HTTPStatus.SEE_OTHER, "Login failed")
-                    self.send_header("Location", "/books/login.html?failed")
-                    self.send_session_cookie(None)
+                    self.login_failed()
                 else:
                     email = params['email'].lower()
                     if not allowed_email(email):
-                        print(f"/login invalid email format [{email[:120]}]")
-                        self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
-                        self.send_header("Location", "/books/login.html?failed")
-                        self.send_session_cookie(None)
+                        logger.info(f"/login invalid email format [{email[:120]}]")
+                        self.login_failed()
                     else:
                         user = session.query(User).filter(User.email == email).first()
                         if params['login'] == 'Login':
-                            print('login')
                             if not allowed_password(params['password']):
-                                print(f"/login invalid password format [{params['password'][:70]}]")
-                                self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
-                                self.send_header("Location", "/books/login.html?failed")
-                                self.send_session_cookie(None)
+                                logger.info(f"/login invalid password format [{params['password'][:70]}]")
+                                self.login_failed()
                             elif user:
-                                print('valid user found', user.email)
+                                logger.info(f"valid user found {user.email}")
                                 if checkpassword(params['password'], user.password):
                                     self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
                                     self.send_header("Location", "/books")
@@ -237,17 +245,13 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                                     ns = Session(userid=user.id, id=guid().hex)
                                     session.add(ns)
                                     self.send_session_cookie(ns.id)
-                                    print('user authenticated', flush=True)
+                                    logger.success(f'user succesfully authenticated {user.email}')
                                 else:
-                                    self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
-                                    self.send_header("Location", "/books/login.html?failed")
-                                    self.send_session_cookie(None)
-                                    print('user authentication failed', flush=True)
+                                    logger.info(f'user authentication failed for known user {user.email}')
+                                    self.login_failed()
                             else:
-                                print(f'user authentication failed, not a known user {email}', flush=True)
-                                self.send_response(HTTPStatus.SEE_OTHER, "Login failed")
-                                self.send_header("Location", "/books/login.html?failed")
-                                self.send_session_cookie(None)
+                                logger.info(f'user authentication failed for unknown user {email}')
+                                self.login_failed()
                         elif params['login'] == 'Register':
                             print('register')
                             # TODO validate email (rough format) and password (complexity)
@@ -313,48 +317,44 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                                      "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
 
             elif self.path == '/verifysession':
-                print('verifysession', flush=True)
                 if xheaders_present:
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-                    print('unauthorized, verifysession called from outside', flush=True)
+                    logger.info('unauthorized, verifysession called from outside')
                 sessionid = params['sessionid']
                 if not allowed_sessionid(sessionid):
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-                    print('unauthorized, sessionid does not have proper format [{sessionid[:80]}]', flush=True)
+                    logger.info(f'unauthorized, sessionid does not have proper format [{sessionid[:80]}]')
                 for s in session.query(Session).filter(Session.id == sessionid):
-                    print(s.id, s.user.email, flush=True)
                     self.send_response(HTTPStatus.OK, "valid session")
                     content = bytes(f'email={s.user.email}\nid={s.user.id}\nname={s.user.name}\nsuperuser={s.user.superuser}', 'utf-8')
-                    print('found', content)
+                    logger.info(f'authorized, valid session found: {sessionid} {content}')
                     break
                 if not content:
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-                    print('unauthorized, no valid session', flush=True)
+                    logger.info(f'unauthorized, no valid session found: {sessionid}')
                 else:
                     self.send_response(HTTPStatus.OK, "valid session")
-                    print('ok authorized', flush=True)
 
             elif self.path == '/logout':
-                print('logout', flush=True)
+                # TODO rigid input check (do we have the correct parameters present etc.)
                 c = self.headers.get('Cookie')
                 cookie = SimpleCookie()
                 if c:
                     cookie.load(c)
                 if 'session' in cookie:
-                    print('session', cookie['session'], flush=True)
+                    logger.info(f"session cookie {cookie['session']}")
                     for s in session.query(Session).filter(Session.id == cookie['session'].value):
-                        print(s.id, s.user.email, flush=True)
+                        logger.debug(f"deleting session {s.id} for user {s.user.email}")
                         session.delete(s)
                         content = bytes(s.user.email, 'utf-8')
-                        print('deleted', content)
                         break
                 if not content:
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-                    print('unauthorized', flush=True)
+                    logger.info('logout unauthorized, session not found')
                 else:
                     self.send_response(HTTPStatus.OK)
                     self.send_header("Location", "/books/login.html")
-                    print('ok authorized', flush=True)
+                    logger.info(f'logout authorized for user {content}')
 
             elif self.path == '/newpassword':
                 # TODO rigid input check (do we have the correct parameters present etc.)
@@ -394,9 +394,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
             return None
         except Exception as e:
-            print('uncaught exception', e, flush=True)
-            print_exc(file=sys.stdout)
-            print(flush=True)
+            logger.exception(e)
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
             return None
 
@@ -515,14 +513,14 @@ if __name__ == '__main__':
             Base.metadata.create_all(db_engine)
             break
         except Exception as e:
-            print(e)
-            print(f"Database connection refused trial {i}/{retries}, now waiting {timeout} seconds ...")
+            logger.exception(e)
+            logger.info(f"Database connection refused trial {i}/{retries}, now waiting {timeout} seconds ...")
             sleep(timeout)
             waited += timeout
             timeout *= 2
             continue
     else:
-        print(f"No database connections after {retries} tries ({waited} seconds)")
+        logger.critical(f"No database connections after {retries} tries ({waited} seconds)")
         exit(111)
 
     username, password = fetch_admin_params()
@@ -530,14 +528,15 @@ if __name__ == '__main__':
     DBSession = sessionmaker(bind=db_engine)
     session = DBSession()
     for s in session.query(User).filter(User.email == username):
-        print(s.id, s.email)
+        logger.info(f"deleting user {s.email}")
         session.delete(s)
     session.commit()
     ns = User(email=username, password=newpassword(password), name='Administrator', superuser=True)
     session.add(ns)
+    logger.info(f"adding admin user {ns.email}")
     session.commit()
 
     socketserver.TCPServer.allow_reuse_address = True  # on the class! (not the instance)
     with socketserver.TCPServer(("", args.port), MyHTTPRequestHandler) as httpd:
-        print("serving at port", args.port)
+        logger.info(f"serving at port {args.port}")
         httpd.serve_forever()

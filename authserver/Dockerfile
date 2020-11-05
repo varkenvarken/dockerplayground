@@ -1,9 +1,7 @@
 FROM python:3
 
 RUN python -m pip install --upgrade pip setuptools wheel
-RUN pip install PyMySQL
-RUN pip install PyMySQL[rsa]
-RUN pip install SQLAlchemy
+RUN pip install PyMySQL PyMySQL[rsa] SQLAlchemy loguru
 
 ENTRYPOINT ["python", "server.py", "-d", "/var/lib/sqlite/user.db"]
 
