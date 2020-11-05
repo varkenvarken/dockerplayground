@@ -10,6 +10,9 @@ objectstore:
 crawler:
 	docker-compose build crawler
 
+crudapp:
+	docker-compose build crudapp
+
 up:
 	docker-compose up -d
 
@@ -23,5 +26,5 @@ clean: down
 	docker volume rm dockerplayground_userdata
 	docker volume rm dockerplayground_data
 
-.PHONY: authserver objectstore crawler
+.PHONY: authserver objectstore crawler crudapp
 
