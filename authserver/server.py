@@ -154,6 +154,14 @@ def get_params(body):
     return params
 
 
+def valid_session(cookie, session):
+    if 'session' not in cookie:
+        return False
+    if not allowed_sessionid(cookie['session'].value):
+        return False
+    return bool(session.query(Session).filter(Session.id == cookie['session'].value).one())
+
+
 Base = declarative_base()
 
 
@@ -309,7 +317,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                                 logger.success(f"sending confirmation mail to {user.email} (user.name)")
                                 u, p, s = fetch_smtp_params()
                                 mail(f"""
-                                Hi,
+                                Hi {user.name},
 
                                 Please confirm your registration on Book collection.
 
@@ -321,8 +329,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                             self.send_header("Location", "/books/login.html?pending")
                             self.send_session_cookie(None)
                         elif params['login'] == 'Forgot':
-                            print('forgot')
-                            # TODO validate email (rough format) and password (complexity)
+                            logger.info('/login login=Forgot')
 
                             # we always send the same response, no matter if the user exists or not
                             self.send_response(HTTPStatus.SEE_OTHER, "Email sent")
@@ -331,14 +338,15 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
                             user = session.query(User).filter(User.email == params['email']).first()
                             if not user:  # no user found but we are not providing this information
-                                print('no user found', flush=True)
+                                logger.info(f"no user found {params['email']}")
                             else:
+                                logger.info(f"password reset request received for existing user {params['email']}")
                                 pr = PasswordReset(id=guid().hex, userid=user.id)
                                 session.add(pr)
                                 session.commit()
                                 u, p, s = fetch_smtp_params()
                                 mail(f"""
-                                Hi,
+                                Hi {user.name},
 
                                 We received a request to reset your password. If it wasn't you, please ignore this message.
                                 Otherwise, follow this link and select a new password.
@@ -393,14 +401,16 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     logger.success(f'logout authorized for user {content}')
 
             elif self.path == '/newpassword':
-                # TODO rigid input check (do we have the correct parameters present etc.)
-                print('newpassword', flush=True)
-                for k in params:
-                    print("  ", k, params[k])
-                print(flush=True)
-                resetuser = session.query(PasswordReset).filter(PasswordReset.id == params['resetid']).first()
-                if resetuser:
-                    print('ok', flush=True)
+                # TODO check well formedness of params
+                if not allowed_password(params['password']):
+                    logger.info(f"invalid password format [{params['password'][:70]}]")
+                elif not allowed_password(params['password2']):
+                    logger.info(f"invalid password format [{params['password2'][:70]}]")
+                elif params['password'] != params['password2']:
+                    logger.info("passwords are not identical")
+                    # TODO check for expiration and remove expired sessions (and successful session )
+                elif resetuser := session.query(PasswordReset).filter(PasswordReset.id == params['resetid']).first():  # resetid is a hidden field
+                    logger.success(f'password reset for user {resetuser.user.email}')
                     user = resetuser.user
                     user.password = newpassword(params['password'])
                     session.commit()
@@ -408,11 +418,13 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.send_header("Location", "/books/login.html?resetsuccessful")
                     self.send_session_cookie(None)
                 else:
+                    logger.info('resetid not found or expired')
                     self.send_response(HTTPStatus.SEE_OTHER, "Password reset failed")
                     self.send_header("Location", "/books/login.html?resetfailed")
                     self.send_session_cookie(None)
 
             else:
+                logger.info('url not found')
                 self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
             session.commit()
@@ -481,22 +493,26 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         self.end_headers()
                 # TODO clean pending users with same email? (note: only expired)
             if url.path == '/resetpassword':
-                print('resetpassword', flush=True)
-                pr = session.query(PasswordReset).filter(PasswordReset.id == url.query).first()
-                if pr:
-                    print('ok', flush=True)
+                if not allowed_sessionid(url.query):
+                    logger.info(f'resetpassword link not ok {url.query[:40]}')
+                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
+                    self.send_header("Location", "/books/login.html?expired")
+                    self.end_headers()
+                elif pr := session.query(PasswordReset).filter(PasswordReset.id == url.query).first():
                     # note that we do not create a session
+                    # TODO do the actual reset!
+                    logger.success('resetpassword confirmation successful')
                     self.send_response(HTTPStatus.SEE_OTHER, "Reset request ok")
                     self.send_header("Location", f"/books/login.html?choosepassword={pr.id}")
                     self.end_headers()
                 else:  # no pending confirmation or expired, redirect to login page
-                    print('expired', flush=True)
-                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link expired")
+                    logger.info('resetpassword link not present or expired')
+                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
                     self.send_header("Location", "/books/login.html?expired")
                     self.end_headers()
                 # TODO clean pending users with same email? (note: only expired)
             else:
-                print('not found', flush=True)
+                logger.info('url not found')
                 self.send_error(HTTPStatus.NOT_FOUND, "Not found")
                 self.end_headers()
 
