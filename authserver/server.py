@@ -31,9 +31,8 @@ from hashlib import pbkdf2_hmac
 from hmac import compare_digest
 from os import urandom
 import os
-from re import compile
+from regex import compile  # we use an alternative regular expression library here to support unicode classes like \p{L}
 from smtp import fetch_smtp_params, mail
-from traceback import print_exc
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
@@ -53,23 +52,25 @@ PASSWORD_lower      = compile(r"[a-z]")
 PASSWORD_upper      = compile(r"[A-Z]")
 PASSWORD_digit      = compile(r"[01-9]")
 PASSWORD_special    = compile(r"[ !|@#$%^&*()\-_.,<>?/\\{}\[\]]")
+NAME_pattern        = compile(r"[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} ]+")  # letters, marks, digits in any language
 
 
 def newpassword(password):
     salt = urandom(16)
     dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
-    print(f"{password} + {salt.hex()} -> >{salt.hex() + dk.hex()}<")
     return salt.hex() + dk.hex()
 
 
 def checkpassword(password, reference):
     salt = bytes.fromhex(reference[:32])
     dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
-    print(f"{password} + {salt.hex()} -> >{salt.hex() + dk.hex()}< == >{reference}<")
     return compare_digest(salt.hex() + dk.hex(), reference)
 
 
 def allowed_sessionid(s):
+    """
+    Check is s is a sessionid in a proper format (32 lowercase hex digits).
+    """
     if len(s) > 32:  # protect against overly long strings
         return False
     return bool(SESSIONID_pattern.fullmatch(s))
@@ -78,10 +79,20 @@ def allowed_sessionid(s):
 def allowed_email(s):
     """
     Check if s is a valid email address format.
+
+    This is not an exhaustive check, the final truth is determined by
+    whether the email is delivered or not so this check is rather
+    permissive.
     """
-    if len(s) > 120:  # protect against overly long strings
+    if len(s) > 100:  # protect against overly long strings
         return False
     return bool(EMAIL_pattern.fullmatch(s))
+
+
+def allowed_name(s):
+    if len(s) > 100:
+        return False
+    return bool(NAME_pattern.fullmatch(s))
 
 
 def verify_login_params(params):
@@ -105,6 +116,14 @@ def verify_login_params(params):
     return True
 
 
+def verify_verifysession_params(params):
+    if len(params) != 1 or 'sessionid' not in params:
+        return False
+    if allowed_sessionid(params['sessionid']):
+        return True
+    return False
+
+
 def allowed_password(s):
     if len(s) > 64 or len(s) < 8:
         return False
@@ -112,12 +131,27 @@ def allowed_password(s):
     nupper = len(PASSWORD_upper.findall(s))
     ndigit = len(PASSWORD_digit.findall(s))
     nspecial = len(PASSWORD_special.findall(s))
-    print(f'nlower {nlower} nupper {nupper} ndigit {ndigit} nspecial {nspecial} total {nlower + nupper + ndigit + nspecial} len {len(s)}')
     if nlower < 1 or nupper < 1 or ndigit < 1 or nspecial < 1:
         return False
     if nlower + nupper + ndigit + nspecial != len(s):
         return False
     return True
+
+
+def get_params(body):
+    params = {}
+    for p in body.decode('utf-8').split('&'):
+        if len(p.strip()) == 0:
+            continue
+        kv = p.split('=', maxsplit=1)
+        if kv:
+            k = unquote_plus(kv[0]).strip()
+            v = ''
+            if len(kv) > 1:
+                v = unquote_plus(kv[1])
+            params[k] = v
+            logger.debug(f'param {k}={v}')
+    return params
 
 
 Base = declarative_base()
@@ -183,6 +217,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         fromip = self.headers['X-Forwarded-For'] if 'X-Forwarded-For' in self.headers else 'internal net'
         logger.info(self.address_string())
         logger.info(f'POST from {fromip}')
+        logger.info(f'url {self.path}')
 
         xheaders_present = False
         for h in self.headers:
@@ -200,29 +235,19 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
             content = None
 
-            params = {}
             content_length = int(self.headers['Content-Length'])
             body = self.rfile.read(content_length)
             if len(body) > 1000:
-                logger.info('bad request: body tool large')
-                self.send_error(HTTPStatus.BAD_REQUEST, "Post request body too large")
+                logger.info('bad request: body too large')
+                self.send_error(HTTPStatus.BAD_REQUEST, "Bad request")
                 return None
-            for p in body.decode('utf-8').split('&'):
-                kv = p.split('=', maxsplit=1)
-                if kv:
-                    k = unquote_plus(kv[0])
-                    v = ''
-                    if len(kv) > 1:
-                        v = unquote_plus(kv[1])
-                    params[k] = v
+
+            params = get_params(body)
 
             if self.path == '/login':
                 # verify necessary parameters are present
                 if not verify_login_params(params):
                     logger.info("/login input parameters not present or not correct")
-                    for k in params:
-                        logger.info(f"\t{k}, {params[k]}")
-
                     self.login_failed()
                 else:
                     email = params['email'].lower()
@@ -232,6 +257,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     else:
                         user = session.query(User).filter(User.email == email).first()
                         if params['login'] == 'Login':
+                            logger.info('/login login=Login')
                             if not allowed_password(params['password']):
                                 logger.info(f"/login invalid password format [{params['password'][:70]}]")
                                 self.login_failed()
@@ -253,28 +279,34 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                                 logger.info(f'user authentication failed for unknown user {email}')
                                 self.login_failed()
                         elif params['login'] == 'Register':
-                            print('register')
-                            # TODO validate email (rough format) and password (complexity)
-
+                            logger.info('/login login=Register')
                             # We always return the same response (and redirect) no matter
-                            # whether the email is in use or not, to prevent indexing
-                            if user:
-                                print('email already in use', flush=True)
+                            # whether the email is in use or not or if anything else is wrong
+                            # this is to prevent indexing, i.e. checking which email addresses are in use
+                            if not allowed_password(params['password']):
+                                logger.info(f"invalid password format [{params['password'][:70]}]")
+                            elif not allowed_password(params['password2']):
+                                logger.info(f"invalid password format [{params['password2'][:70]}]")
+                            elif params['password'] != params['password2']:
+                                logger.info("passwords are not identical")
+                            elif user:
+                                logger.info(f'email already in use {user.email}')
+                            elif not allowed_name(params['name']):
+                                logger.info(f"name not allowed {params['name']}")
                             else:
                                 user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
                                 if user:  # we delete previous pending registration to prevent database overfilling
-                                    # TODO we should make sure that a limited number of emails are sent to the same address
-                                    print('previous registration not yet confirmed', flush=True)
+                                    logger.info('previous registration not yet confirmed')
                                     session.delete(user)
                                     session.commit()
                                 else:
-                                    print('first registration', flush=True)
+                                    logger.info('first registration')
                                 pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']), name=params['name'])
                                 session.add(pu)
                                 session.commit()
+                                # TODO we should make sure that a limited number of emails are sent to the same address
                                 user = session.query(PendingUser).filter(PendingUser.email == params['email']).first()
-                                for c in PendingUser.__table__.c.keys():
-                                    print(c, getattr(user, c))
+                                logger.success(f"sending confirmation mail to {user.email} (user.name)")
                                 u, p, s = fetch_smtp_params()
                                 mail(f"""
                                 Hi,
@@ -317,17 +349,22 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                                      "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
 
             elif self.path == '/verifysession':
+                # we only allow sessions to be verified by apps running on the same
+                # network, i.e. they should not have any X- headers present
                 if xheaders_present:
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
                     logger.info('unauthorized, verifysession called from outside')
-                sessionid = params['sessionid']
-                if not allowed_sessionid(sessionid):
+                # verify that incoming parameters are what we expect
+                if not verify_verifysession_params(params):
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-                    logger.info(f'unauthorized, sessionid does not have proper format [{sessionid[:80]}]')
+                    logger.info('unauthorized, sessionid does not have proper format')
+                # if the session is known, compose the response with user data
+                # TODO add a hard timelimit to the session
+                sessionid = params['sessionid']
                 for s in session.query(Session).filter(Session.id == sessionid):
-                    self.send_response(HTTPStatus.OK, "valid session")
                     content = bytes(f'email={s.user.email}\nid={s.user.id}\nname={s.user.name}\nsuperuser={s.user.superuser}', 'utf-8')
-                    logger.info(f'authorized, valid session found: {sessionid} {content}')
+                    logger.success(f'authorized, valid session found: {sessionid} {s.user.email}')
+                    logger.info(f'email={s.user.email} id={s.user.id} name={s.user.name} superuser={s.user.superuser}')
                     break
                 if not content:
                     self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
@@ -336,13 +373,12 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.send_response(HTTPStatus.OK, "valid session")
 
             elif self.path == '/logout':
-                # TODO rigid input check (do we have the correct parameters present etc.)
-                c = self.headers.get('Cookie')
-                cookie = SimpleCookie()
-                if c:
-                    cookie.load(c)
+                if len(params):
+                    logger.info('bad request: logout request should not have parameters')
+                    self.send_error(HTTPStatus.BAD_REQUEST, "Bad request")
+                    return None
                 if 'session' in cookie:
-                    logger.info(f"session cookie {cookie['session']}")
+                    logger.info(cookie['session'])
                     for s in session.query(Session).filter(Session.id == cookie['session'].value):
                         logger.debug(f"deleting session {s.id} for user {s.user.email}")
                         session.delete(s)
@@ -354,7 +390,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 else:
                     self.send_response(HTTPStatus.OK)
                     self.send_header("Location", "/books/login.html")
-                    logger.info(f'logout authorized for user {content}')
+                    logger.success(f'logout authorized for user {content}')
 
             elif self.path == '/newpassword':
                 # TODO rigid input check (do we have the correct parameters present etc.)
@@ -381,17 +417,16 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
             session.commit()
             if content:
-                print('content', content, flush=True)
+                logger.debug(f'response content {content}')
                 self.send_header("Content-type", "text/html; charset=UTF-8")
                 self.send_header("Content-Length", len(content))
                 self.end_headers()
                 self.wfile.write(content)
                 self.wfile.flush()
-                print('done', flush=True)
             else:
-                print('no content', flush=True)
                 self.end_headers()
 
+            logger.debug('done')
             return None
         except Exception as e:
             logger.exception(e)
@@ -412,29 +447,38 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         try:
+            fromip = self.headers['X-Forwarded-For'] if 'X-Forwarded-For' in self.headers else 'internal net'
+            logger.info(self.address_string())
+            logger.info(f'GET from {fromip}')
+            logger.info(f'url {self.path}')
+
             global DBSession
             session = DBSession()
-            # TODO verify/sanitize query parameters before acting upon them w. DB queries!
             url = urlparse(self.path)
-            print(url, flush=True)
             if url.path == '/confirmregistration':
-                print('confirmation', flush=True)
-                user = session.query(PendingUser).filter(PendingUser.id == url.query).first()
-                if user:
-                    # copy user to User table
-                    ns = User(email=user.email, password=user.password, name=user.name)
-                    session.add(ns)
-                    session.commit()
-                    # redirect to login page
-                    print('ok', flush=True)
-                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation ok")
-                    self.send_header("Location", "/books/login.html?confirmed")
-                    self.end_headers()
-                else:  # no pending confirmation or expired, redirect to login page
-                    print('expired', flush=True)
-                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link expired")
+                if not allowed_sessionid(url.query):
+                    logger.info(f'confirmregistration link not ok {url.query[:40]}')
+                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
                     self.send_header("Location", "/books/login.html?expired")
                     self.end_headers()
+                else:
+                    # TODO check for expiration and remove expired entries
+                    user = session.query(PendingUser).filter(PendingUser.id == url.query).first()
+                    if user:
+                        logger.success(f'confirmregistration succeeded for {user.email} ({user.name})')
+                        # copy user to User table
+                        ns = User(email=user.email, password=user.password, name=user.name)
+                        session.add(ns)
+                        session.commit()
+                        # redirect to login page
+                        self.send_response(HTTPStatus.SEE_OTHER, "Confirmation ok")
+                        self.send_header("Location", "/books/login.html?confirmed")
+                        self.end_headers()
+                    else:  # no pending confirmation or expired, redirect to login page
+                        logger.info(f'confirmregistration link expired or not present {url.query[:40]}')
+                        self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
+                        self.send_header("Location", "/books/login.html?expired")
+                        self.end_headers()
                 # TODO clean pending users with same email? (note: only expired)
             if url.path == '/resetpassword':
                 print('resetpassword', flush=True)
@@ -456,11 +500,10 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.send_error(HTTPStatus.NOT_FOUND, "Not found")
                 self.end_headers()
 
+            logger.debug('done')
             return None
         except Exception as e:
-            print('uncaught exception', e, flush=True)
-            print_exc(file=sys.stdout)
-            print(flush=True)
+            logger.exception(e)
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
             return None
 
