@@ -31,9 +31,17 @@ $(document).ready(function() {
         if(numUpper + numLower + numNums + numSpecials != value.length){ return false; }
 
         return true;
-	}, '<i class="fas fa-exclamation-triangle"></i> Password not complex enough');
+    }, '<i class="fas fa-exclamation-triangle"></i> Password not complex enough');
 
     
+    $.validator.addMethod("rname", function(value) {
+        var namepattern = /^[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} ]+$/u;  // we speak unicode for names and they may contain letters, marks, numbers and spaces
+        
+        if(value.length < 2 || value.length > 100){ return false; }
+
+        return namepattern.test(value);
+    }, '<i class="fas fa-exclamation-triangle"></i> Name contains illegal characters or is too short or too long');
+
     function getQueryVariable(variable)
     {
            var query = window.location.search.substring(1);
@@ -72,7 +80,7 @@ $(document).ready(function() {
         rules: {
             name: {
                 required: true,
-                minlength: 2
+                rname: true
             },
             password1: {
                 required: true,
@@ -91,9 +99,8 @@ $(document).ready(function() {
         messages: {
             name: {
                 required: '<i class="fas fa-exclamation-triangle"></i> Please enter a name',
-                minlength: '<i class="fas fa-exclamation-triangle"></i> Your name must consist of at least 2 characters'
             },
-            password: {
+            password1: {
                 required: '<i class="fas fa-exclamation-triangle"></i> Please provide a password',
             },
             password2: {
