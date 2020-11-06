@@ -26,7 +26,7 @@ def mail(message, subject, fromaddr, toaddr, smtp, username, password):
     from smtplib import SMTP_SSL
     with SMTP_SSL(smtp) as smtp:
         smtp.login(username, password)
-        smtp.sendmail(fromaddr, toaddr, f"From: {fromaddr}\r\nTo: {toaddr}\r\nSubject: {subject}\r\n\r\n{message}")
+        smtp.sendmail(fromaddr, toaddr, bytes(f"From: {fromaddr}\r\nTo: {toaddr}\r\nSubject: {subject}\r\n\r\n{message}", 'UTF-8'))
 
 
 def fetch_smtp_params():
