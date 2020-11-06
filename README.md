@@ -7,6 +7,12 @@ General notes are being documented on [a separate website](https://varkenvarken.
 ![Flake8](https://github.com/varkenvarken/dockerplayground/workflows/Flake8/badge.svg)
 ![CodeQL](https://github.com/varkenvarken/dockerplayground/workflows/CodeQL/badge.svg)
 
+# outline
+
+The application we implement is a simple book collection app, suitable for multiple users. However, that is not what this project is about. We focus here on building a solution with different components that should be independent from each other, scalable and run as docker containers.
+
+This means for example we have a separate database server (MySQL), an authentication server (in Python), a REST based objectstore (using Falcon) a frontend server (Python again) and a reverse proxy (Traefik) to forward incoming requests to the appropriate servers. We will even add metrics collection with prometheus and a dashboard with Grafana. 
+
 # quick start
 
 - prerequisite: have docker up and running on your box
@@ -18,4 +24,4 @@ General notes are being documented on [a separate website](https://varkenvarken.
 - browse to https://myserver.local
 
 # current status
-![](https://raw.githubusercontent.com/varkenvarken/dockerplayground/master/docs/illustrations/General%20Web%20Application%20Architecture%20-%20Status%20202010013.svg)
+![](https://raw.githubusercontent.com/varkenvarken/dockerplayground/master/docs/illustrations/General%20Web%20Application%20Architecture%20-%20Status%2020201106.svg)
