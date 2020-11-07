@@ -24,4 +24,4 @@ This means for example we have a separate database server (MySQL), an authentica
 - browse to https://myserver.local
 
 # current status
-![](https://raw.githubusercontent.com/varkenvarken/dockerplayground/master/docs/illustrations/General%20Web%20Application%20Architecture%20-%20Status%2020201106.svg)
+![](https://raw.githubusercontent.com/varkenvarken/dockerplayground/master/docs/illustrations/General%20Web%20Application%20Architecture%20-%20Status%2020201107.svg)
