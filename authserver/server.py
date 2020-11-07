@@ -41,10 +41,15 @@ from sqlalchemy.orm import relationship, sessionmaker
 from loguru import logger
 
 
-# TODO make loglevel configurable via environment variable
 logger.remove()
-logger.add(sys.stderr, level="DEBUG")
+logger.add(sys.stderr, level=os.environ['DEBUGLEVEL'] if 'DEBUGLEVEL' in os.environ else 'DEBUG')
 
+# redirect locations for successful logon
+APPLICATION         = os.environ['APPLICATION']          # e.g. /books
+LOGINSCREEN         = os.environ['LOGINSCREEN']          # e.g. /books/login.html
+# these get used in confirmation emails:
+CONFIRMREGISTRATION = os.environ['CONFIRMREGISTRATION']  # e.g. https://server.yourdomain.org/auth/confirmregistration
+RESETPASSWORD       = os.environ['RESETPASSWORD']        # e.g. https://server.yourdomain.org/auth/resetpassword
 
 SESSIONID_pattern   = compile(r"[01-9a-f]{32}")                 # 32 hexadecimal lowercase characters
 EMAIL_pattern       = compile(r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*")  # rough check: something@subdomain.domain.toplevel  any number of subdomains but cannot start or end with a dot and must contain a domain and a toplevel
@@ -273,7 +278,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                                 logger.info(f"valid user found {user.email}")
                                 if checkpassword(params['password'], user.password):
                                     self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
-                                    self.send_header("Location", "/books")
+                                    self.send_header("Location", APPLICATION)
                                     for s in session.query(Session).filter(Session.userid == user.id):
                                         session.delete(s)
                                     ns = Session(userid=user.id, id=guid().hex)
@@ -321,19 +326,19 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
                                 Please confirm your registration on Book collection.
 
-                                https://server.michelanders.nl/auth/confirmregistration?{pu.id}
+                                {CONFIRMREGISTRATION}?{pu.id}
 
                                 """,
                                      "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
                             self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email sent to email address")
-                            self.send_header("Location", "/books/login.html?pending")
+                            self.send_header("Location", f"{LOGINSCREEN}?pending")
                             self.send_session_cookie(None)
                         elif params['login'] == 'Forgot':
                             logger.info('/login login=Forgot')
 
                             # we always send the same response, no matter if the user exists or not
                             self.send_response(HTTPStatus.SEE_OTHER, "Email sent")
-                            self.send_header("Location", "/books/login.html?checkemail")
+                            self.send_header("Location", f"{LOGINSCREEN}?checkemail")
                             self.send_session_cookie(None)
 
                             user = session.query(User).filter(User.email == params['email']).first()
@@ -351,7 +356,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                                 We received a request to reset your password. If it wasn't you, please ignore this message.
                                 Otherwise, follow this link and select a new password.
 
-                                https://server.michelanders.nl/auth/resetpassword?{pr.id}
+                                RESETPASSWORD?{pr.id}
 
                                 """,
                                      "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
@@ -397,7 +402,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     logger.info('logout unauthorized, session not found')
                 else:
                     self.send_response(HTTPStatus.OK)
-                    self.send_header("Location", "/books/login.html")
+                    self.send_header("Location", LOGINSCREEN)
                     logger.success(f'logout authorized for user {content}')
 
             elif self.path == '/newpassword':
@@ -415,12 +420,12 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     user.password = newpassword(params['password'])
                     session.commit()
                     self.send_response(HTTPStatus.SEE_OTHER, "Password reset successful")
-                    self.send_header("Location", "/books/login.html?resetsuccessful")
+                    self.send_header("Location", f"{LOGINSCREEN}?resetsuccessful")
                     self.send_session_cookie(None)
                 else:
                     logger.info('resetid not found or expired')
                     self.send_response(HTTPStatus.SEE_OTHER, "Password reset failed")
-                    self.send_header("Location", "/books/login.html?resetfailed")
+                    self.send_header("Location", f"{LOGINSCREEN}?resetfailed")
                     self.send_session_cookie(None)
 
             else:
@@ -471,7 +476,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 if not allowed_sessionid(url.query):
                     logger.info(f'confirmregistration link not ok {url.query[:40]}')
                     self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                    self.send_header("Location", "/books/login.html?expired")
+                    self.send_header("Location", f"{LOGINSCREEN}?expired")
                     self.end_headers()
                 else:
                     # TODO check for expiration and remove expired entries
@@ -484,31 +489,31 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         session.commit()
                         # redirect to login page
                         self.send_response(HTTPStatus.SEE_OTHER, "Confirmation ok")
-                        self.send_header("Location", "/books/login.html?confirmed")
+                        self.send_header("Location", f"{LOGINSCREEN}?confirmed")
                         self.end_headers()
                     else:  # no pending confirmation or expired, redirect to login page
                         logger.info(f'confirmregistration link expired or not present {url.query[:40]}')
                         self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                        self.send_header("Location", "/books/login.html?expired")
+                        self.send_header("Location", f"{LOGINSCREEN}?expired")
                         self.end_headers()
                 # TODO clean pending users with same email? (note: only expired)
             if url.path == '/resetpassword':
                 if not allowed_sessionid(url.query):
                     logger.info(f'resetpassword link not ok {url.query[:40]}')
                     self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                    self.send_header("Location", "/books/login.html?expired")
+                    self.send_header("Location", f"{LOGINSCREEN}?expired")
                     self.end_headers()
                 elif pr := session.query(PasswordReset).filter(PasswordReset.id == url.query).first():
                     # note that we do not create a session
                     # TODO do the actual reset!
                     logger.success('resetpassword confirmation successful')
                     self.send_response(HTTPStatus.SEE_OTHER, "Reset request ok")
-                    self.send_header("Location", f"/books/login.html?choosepassword={pr.id}")
+                    self.send_header("Location", f"{LOGINSCREEN}?choosepassword={pr.id}")
                     self.end_headers()
                 else:  # no pending confirmation or expired, redirect to login page
                     logger.info('resetpassword link not present or expired')
                     self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                    self.send_header("Location", "/books/login.html?expired")
+                    self.send_header("Location", f"{LOGINSCREEN}?expired")
                     self.end_headers()
                 # TODO clean pending users with same email? (note: only expired)
             else:
