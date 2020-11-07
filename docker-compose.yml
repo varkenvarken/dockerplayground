@@ -137,6 +137,7 @@ services:
       - SMTP_PASSWORD
       - ADMIN_USER
       - ADMIN_PASSWORD
+      - DOMAIN
       - APPLICATION
       - LOGINSCREEN
       - CONFIRMREGISTRATION

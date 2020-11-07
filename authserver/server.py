@@ -44,6 +44,8 @@ from loguru import logger
 logger.remove()
 logger.add(sys.stderr, level=os.environ['DEBUGLEVEL'] if 'DEBUGLEVEL' in os.environ else 'DEBUG')
 
+# domain to be used in session cookie
+DOMAIN              = os.environ['DOMAIN']               # e.g. yourdomain.org
 # redirect locations for successful logon
 APPLICATION         = os.environ['APPLICATION']          # e.g. /books
 LOGINSCREEN         = os.environ['LOGINSCREEN']          # e.g. /books/login.html
@@ -215,12 +217,54 @@ class PasswordReset(Base):
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
+        """
+        Overridden method, now logs original messages on trace level.
+        """
         logger.trace(f"{self.address_string()} {format % args}")
 
-    def login_failed(self):
-        self.send_error(HTTPStatus.SEE_OTHER, "Login failed")
-        self.send_header("Location", "/books/login.html?failed")
+    def redirect_header(self, msg, location):
+        """
+        Set location header.
+
+        msg is the message added to the HTTP response code
+        location the URL to redirect to
+
+        Note that the headers are not ended and the session cookie is
+        not cleared.
+        """
+        self.send_response(HTTPStatus.SEE_OTHER, msg)
+        self.send_header("Location", location)
+
+    def redirect(self, msg, location):
+        """
+        Set location header and clear session cookie.
+
+        msg is the message added to the HTTP response code
+        location the URL to redirect to.
+        """
+        self.send_response(HTTPStatus.SEE_OTHER, msg)
+        self.send_header("Location", location)
         self.send_session_cookie(None)
+        self.end_headers()
+
+    def login_failed(self):
+        self.redirect("Login failed", f"{LOGINSCREEN}?failed")
+
+    def get_cookies(self):
+        c = self.headers.get('Cookie')
+        cookie = SimpleCookie()
+        if c:
+            cookie.load(c)
+        return cookie
+
+    def send_session_cookie(self, session_id):
+        cookie = SimpleCookie()
+        cookie['session'] = session_id
+        cookie['session']['samesite'] = 'Lax'
+        cookie['session']['domain'] = DOMAIN
+        cookie['session']['path'] = '/'
+        for morsel in cookie.values():
+            self.send_header("Set-Cookie", morsel.OutputString())
 
     def do_POST(self):
         # check if an X-header is present
@@ -241,10 +285,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             global DBSession
             session = DBSession()
 
-            c = self.headers.get('Cookie')
-            cookie = SimpleCookie()
-            if c:
-                cookie.load(c)
+            cookie = self.get_cookies()
 
             content = None
 
@@ -277,8 +318,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                             elif user:
                                 logger.info(f"valid user found {user.email}")
                                 if checkpassword(params['password'], user.password):
-                                    self.send_response(HTTPStatus.SEE_OTHER, "Login succeeded")
-                                    self.send_header("Location", APPLICATION)
+                                    self.redirect_header("Login succeeded", APPLICATION)
                                     for s in session.query(Session).filter(Session.userid == user.id):
                                         session.delete(s)
                                     ns = Session(userid=user.id, id=guid().hex)
@@ -330,15 +370,13 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
                                 """,
                                      "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
-                            self.send_response(HTTPStatus.SEE_OTHER, "Registration pending confirmation, email sent to email address")
-                            self.send_header("Location", f"{LOGINSCREEN}?pending")
+                            self.redirect_start("Registration pending confirmation, email sent to email address", f"{LOGINSCREEN}?pending")
                             self.send_session_cookie(None)
                         elif params['login'] == 'Forgot':
                             logger.info('/login login=Forgot')
 
                             # we always send the same response, no matter if the user exists or not
-                            self.send_response(HTTPStatus.SEE_OTHER, "Email sent")
-                            self.send_header("Location", f"{LOGINSCREEN}?checkemail")
+                            self.redirect_start("Email sent", f"{LOGINSCREEN}?checkemail")
                             self.send_session_cookie(None)
 
                             user = session.query(User).filter(User.email == params['email']).first()
@@ -419,13 +457,11 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     user = resetuser.user
                     user.password = newpassword(params['password'])
                     session.commit()
-                    self.send_response(HTTPStatus.SEE_OTHER, "Password reset successful")
-                    self.send_header("Location", f"{LOGINSCREEN}?resetsuccessful")
+                    self.redirect_start("Password reset successful", f"{LOGINSCREEN}?resetsuccessful")
                     self.send_session_cookie(None)
                 else:
                     logger.info('resetid not found or expired')
-                    self.send_response(HTTPStatus.SEE_OTHER, "Password reset failed")
-                    self.send_header("Location", f"{LOGINSCREEN}?resetfailed")
+                    self.redirect_start("Password reset failed", f"{LOGINSCREEN}?resetfailed")
                     self.send_session_cookie(None)
 
             else:
@@ -450,18 +486,6 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
             return None
 
-    def end_headers(self):
-        super().end_headers()
-
-    def send_session_cookie(self, session_id):
-        cookie = SimpleCookie()
-        cookie['session'] = session_id
-        cookie['session']['samesite'] = 'Lax'
-        cookie['session']['domain'] = 'michelanders.nl'
-        cookie['session']['path'] = '/'
-        for morsel in cookie.values():
-            self.send_header("Set-Cookie", morsel.OutputString())
-
     def do_GET(self):
         try:
             fromip = self.headers['X-Forwarded-For'] if 'X-Forwarded-For' in self.headers else 'internal net'
@@ -475,9 +499,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             if url.path == '/confirmregistration':
                 if not allowed_sessionid(url.query):
                     logger.info(f'confirmregistration link not ok {url.query[:40]}')
-                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                    self.send_header("Location", f"{LOGINSCREEN}?expired")
-                    self.end_headers()
+                    self.redirect("Confirmation link not ok", f"{LOGINSCREEN}?expired")
                 else:
                     # TODO check for expiration and remove expired entries
                     user = session.query(PendingUser).filter(PendingUser.id == url.query).first()
@@ -488,33 +510,21 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         session.add(ns)
                         session.commit()
                         # redirect to login page
-                        self.send_response(HTTPStatus.SEE_OTHER, "Confirmation ok")
-                        self.send_header("Location", f"{LOGINSCREEN}?confirmed")
-                        self.end_headers()
+                        self.redirect("Confirmation ok", f"{LOGINSCREEN}?confirmed")
                     else:  # no pending confirmation or expired, redirect to login page
                         logger.info(f'confirmregistration link expired or not present {url.query[:40]}')
-                        self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                        self.send_header("Location", f"{LOGINSCREEN}?expired")
-                        self.end_headers()
+                        self.redirect("Confirmation link not ok", f"{LOGINSCREEN}?expired")
                 # TODO clean pending users with same email? (note: only expired)
             if url.path == '/resetpassword':
                 if not allowed_sessionid(url.query):
                     logger.info(f'resetpassword link not ok {url.query[:40]}')
-                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                    self.send_header("Location", f"{LOGINSCREEN}?expired")
-                    self.end_headers()
+                    self.redirect("Confirmation link not ok", f"{LOGINSCREEN}?expired")
                 elif pr := session.query(PasswordReset).filter(PasswordReset.id == url.query).first():
-                    # note that we do not create a session
-                    # TODO do the actual reset!
                     logger.success('resetpassword confirmation successful')
-                    self.send_response(HTTPStatus.SEE_OTHER, "Reset request ok")
-                    self.send_header("Location", f"{LOGINSCREEN}?choosepassword={pr.id}")
-                    self.end_headers()
+                    self.redirect("Reset request ok", f"{LOGINSCREEN}?choosepassword={pr.id}")
                 else:  # no pending confirmation or expired, redirect to login page
                     logger.info('resetpassword link not present or expired')
-                    self.send_response(HTTPStatus.SEE_OTHER, "Confirmation link not ok")
-                    self.send_header("Location", f"{LOGINSCREEN}?expired")
-                    self.end_headers()
+                    self.redirect("Confirmation link not ok", f"{LOGINSCREEN}?expired")
                 # TODO clean pending users with same email? (note: only expired)
             else:
                 logger.info('url not found')
