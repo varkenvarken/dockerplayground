@@ -131,6 +131,11 @@ def verify_verifysession_params(params):
     return False
 
 
+def verify_stats_params(params):
+    logger.error('verify_stats_params does not have a proper implementation yet')
+    return True
+
+
 def allowed_password(s):
     if len(s) > 64 or len(s) < 8:
         return False
@@ -184,6 +189,13 @@ class User(Base):
     attempts    = Column(Integer, default=0)
     accessed    = Column(DateTime(), default=datetime.now())
     locked      = Column(DateTime(), default=datetime.now())
+
+
+def json_from_user(u):
+    """
+    poor mans jsonify, needs better/more generic implementation
+    """
+    return f'{{"id": "{u.id}", "email": "{u.email}", "name": "{u.name}", "superuser": {"true" if u.superuser else "false"}}}'
 
 
 class Session(Base):
@@ -440,15 +452,42 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
         return None
 
-    def dispatch(self, url):
+    def do_stats(self):
+        params = self.params
+        # NOTE we may want to whitelist this for only localhost in traefik
+        # verify that incoming parameters are what we expect
+        if not verify_stats_params(params):
+            self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+            logger.info('unauthorized, sessionid does not have proper format')
+        # if the session is known, compose the response with user data
+        # TODO add a hard timelimit to the session
+        if 'session' in self.cookie:
+            logger.info(self.cookie['session'])
+            s = self.session.query(Session).filter(Session.id == self.cookie['session'].value).one()
+            if s:
+                if s.user.superuser:
+                    logger.success(f'/stats authorized for user {s.user.email}')
+                    self.send_response(HTTPStatus.OK, "valid session")
+                    users = ",".join(json_from_user(u) for u in self.session.query(User))
+                    return bytes(f'{{"data": [{users}]}}', 'utf-8')
+                logger.info(f'unauthorized, {s.user.email} (s.user.name) is not a superuser ({s.user.superuser})')
+            logger.info(f"unauthorized, no valid session found: {self.cookie['session'].value}")
+        else:
+            logger.info('unauthorized, no session cookie provided')
+        self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+        return None
+
+    def dispatch(self, path):
         dispatch_table = {
             '/login':         self.do_login,
             '/verifysession': self.do_verifysession,
             '/logout':        self.do_logout,
-            '/newpassword':   self.do_newpassword
+            '/newpassword':   self.do_newpassword,
+            '/stats':         self.do_stats
         }
-        if url in dispatch_table:
-            return dispatch_table[url]()
+        url = urlparse(path)
+        if url.path in dispatch_table:
+            return dispatch_table[url.path]()
         return self.do_unknown()
 
     def do_POST(self):
