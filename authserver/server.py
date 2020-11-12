@@ -462,7 +462,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_stats(self):
         params = self.params
         url = urlparse(self.path)
-        # NOTE we may want to whitelist this for only localhost in traefik
+        # TODO we may want to whitelist this for only localhost in traefik
         # verify that incoming parameters are what we expect
         if not verify_stats_params(params):
             self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
