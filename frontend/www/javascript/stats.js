@@ -1,5 +1,9 @@
 $(document).ready(function() {
 
+    function timestamp( data, type, row ) {
+        // no need for Date(data).toISOString()
+        return data.slice(0, 19).replace(/-/g, "/").replace("T", " ");
+    }
     
     $.ajaxSetup({
         xhrFields: {
@@ -8,6 +12,9 @@ $(document).ready(function() {
     });
 
     var endpointusers = '/auth/stats?users';
+    var endpointsessions = '/auth/stats?sessions';
+    var endpointpendingusers = '/auth/stats?pendingusers';
+    var endpointpasswordresets = '/auth/stats?passwordresets';
 
     var columnDefsUsers = [
         {
@@ -33,6 +40,7 @@ $(document).ready(function() {
         {
         data: "created",
         title: "Created",
+        render: timestamp,
         readonly:true
         },
         {
@@ -48,11 +56,75 @@ $(document).ready(function() {
         {
         data: "accessed",
         title: "Accessed",
+        render: timestamp,
         readonly:true
         },
         {
         data: "locked",
         title: "Locked",
+        render: timestamp,
+        readonly:true
+        }
+    ];
+
+    var columnDefsSessions = [
+        {
+        data: "id",
+        title: "Id",
+        readonly:true
+        },
+        {
+        data: "email",
+        title: "Email",
+        readonly:true
+        },
+        {
+        data: "created",
+        title: "Created",
+        render: timestamp,
+        readonly:true
+        }
+    ];
+
+    var columnDefsPendingusers = [
+        {
+        data: "id",
+        title: "Id",
+        readonly:true
+        },
+        {
+        data: "email",
+        title: "Email",
+        readonly:true
+        },
+        {
+        data: "name",
+        title: "Name",
+        readonly:true
+        },
+        {
+        data: "created",
+        title: "Created",
+        render: timestamp,
+        readonly:true
+        }
+    ];
+
+    var columnDefsPasswordresets = [
+        {
+        data: "id",
+        title: "Id",
+        readonly:true
+        },
+        {
+        data: "email",
+        title: "Email",
+        readonly:true
+        },
+        {
+        data: "created",
+        title: "Created",
+        render: timestamp,
         readonly:true
         }
     ];
@@ -66,7 +138,48 @@ $(document).ready(function() {
             cache: true
         },
         columns: columnDefsUsers,
-        dom: 'Bfrtip',        // Needs button container
+        dom: 'Bfrtip',        // show all control + Buttons extension
+        responsive: true,
+    });
+
+    var myTable = $('#sessions').DataTable({
+        "sPaginationType": "full_numbers",
+        ajax: {
+            type: "POST",
+            url : endpointsessions,
+            dataSrc : 'data',
+            cache: true
+        },
+        columns: columnDefsSessions,
+        dom: 'Bfrtip',        // show all control + Buttons extension
+        select: 'single',
+        responsive: true,
+    });
+
+    var myTable = $('#pendingusers').DataTable({
+        "sPaginationType": "full_numbers",
+        ajax: {
+            type: "POST",
+            url : endpointpendingusers,
+            dataSrc : 'data',
+            cache: true
+        },
+        columns: columnDefsPendingusers,
+        dom: 'Bfrtip',        // show all control + Buttons extension
+        select: 'single',
+        responsive: true,
+    });
+
+    var myTable = $('#passwordresets').DataTable({
+        "sPaginationType": "full_numbers",
+        ajax: {
+            type: "POST",
+            url : endpointpasswordresets,
+            dataSrc : 'data',
+            cache: true
+        },
+        columns: columnDefsPasswordresets,
+        dom: 'Bfrtip',        // show all control + Buttons extension
         select: 'single',
         responsive: true,
     });
@@ -77,5 +190,16 @@ $(document).ready(function() {
             $.post(logoutendpoint,function( data ) { window.location.replace(loginpage);})
         }
     );
+
+    $(function() {
+        $("#tabs").tabs();
+    });
+    
+    $(".tab").click(function(){
+        console.log("click" + $(this).data("table"));
+        var tableId = $(this).data("table");
+        $("#"+tableId).DataTable().ajax.reload().columns.adjust().draw();
+    });
+
 });
 

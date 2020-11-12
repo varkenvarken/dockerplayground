@@ -25,7 +25,7 @@ from http import HTTPStatus
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse, unquote_plus
 import sys
-from datetime import datetime
+from datetime import datetime, date
 from uuid import uuid4 as guid
 from hashlib import pbkdf2_hmac
 from hmac import compare_digest
@@ -33,6 +33,8 @@ from os import urandom
 import os
 from regex import compile  # we use an alternative regular expression library here to support unicode classes like \p{L}
 from smtp import fetch_smtp_params, mail
+from decimal import Decimal
+import json
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
@@ -177,6 +179,18 @@ def valid_session(cookie, session):
 Base = declarative_base()
 
 
+def alchemyencoder(obj):
+    if isinstance(obj, Base):
+        d = {c.name: getattr(obj, c.name) for c in obj.__table__.columns if c.name != 'password'}  # passwords *never* leave the system, not even encrypted
+        if hasattr(obj, 'user'):
+            d['email'] = obj.user.email
+        return d
+    elif isinstance(obj, date):
+        return obj.isoformat()
+    elif isinstance(obj, Decimal):
+        return float(obj)
+
+
 class User(Base):
     __tablename__ = 'user'
     id          = Column(Integer, primary_key=True)
@@ -189,13 +203,6 @@ class User(Base):
     attempts    = Column(Integer, default=0)
     accessed    = Column(DateTime(), default=datetime.now())
     locked      = Column(DateTime(), default=datetime.now())
-
-
-def json_from_user(u):
-    """
-    poor mans jsonify, needs better/more generic implementation
-    """
-    return f'{{"id": "{u.id}", "email": "{u.email}", "name": "{u.name}", "superuser": {"true" if u.superuser else "false"}}}'
 
 
 class Session(Base):
@@ -454,11 +461,15 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def do_stats(self):
         params = self.params
+        url = urlparse(self.path)
         # NOTE we may want to whitelist this for only localhost in traefik
         # verify that incoming parameters are what we expect
         if not verify_stats_params(params):
             self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
             logger.info('unauthorized, sessionid does not have proper format')
+        if url.query not in ('users', 'sessions', 'pendingusers', 'passwordresets'):
+            self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+            logger.info('unauthorized, url.query does not have proper format')
         # if the session is known, compose the response with user data
         # TODO add a hard timelimit to the session
         if 'session' in self.cookie:
@@ -468,8 +479,9 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 if s.user.superuser:
                     logger.success(f'/stats authorized for user {s.user.email}')
                     self.send_response(HTTPStatus.OK, "valid session")
-                    users = ",".join(json_from_user(u) for u in self.session.query(User))
-                    return bytes(f'{{"data": [{users}]}}', 'utf-8')
+                    ob = {'users': User, 'sessions': Session, 'pendingusers': PendingUser, 'passwordresets': PasswordReset}[url.query]
+                    users = json.dumps([u for u in self.session.query(ob)], default=alchemyencoder)
+                    return bytes(f'{{"data": {users}}}', 'utf-8')
                 logger.info(f'unauthorized, {s.user.email} (s.user.name) is not a superuser ({s.user.superuser})')
             logger.info(f"unauthorized, no valid session found: {self.cookie['session'].value}")
         else:
