@@ -6,6 +6,7 @@ General notes are being documented on [a separate website](https://varkenvarken.
 ![Docker Image CI](https://github.com/varkenvarken/dockerplayground/workflows/Docker%20Image%20CI/badge.svg)
 ![Flake8](https://github.com/varkenvarken/dockerplayground/workflows/Flake8/badge.svg)
 ![CodeQL](https://github.com/varkenvarken/dockerplayground/workflows/CodeQL/badge.svg)
+![Test Authserver](https://github.com/varkenvarken/dockerplayground/workflows/Test%20Authserver/badge.svg)
 
 # outline
 
