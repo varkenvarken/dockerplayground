@@ -26,5 +26,8 @@ clean: down
 	docker volume rm dockerplayground_userdata
 	docker volume rm dockerplayground_data
 
-.PHONY: authserver objectstore crawler frontend
+testauthserver:
+	(cd authserver; ./test_authserver)
+
+.PHONY: authserver objectstore crawler frontend testauthserver
 
