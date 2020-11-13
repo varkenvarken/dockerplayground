@@ -25,7 +25,7 @@ from http import HTTPStatus
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse, unquote_plus
 import sys
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from uuid import uuid4 as guid
 from hashlib import pbkdf2_hmac
 from hmac import compare_digest
@@ -393,6 +393,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     return None
 
     def do_verifysession(self):
+        global DBSession
         params = self.params
         # we only allow sessions to be verified by apps running on the same
         # network, i.e. they should not have any X- headers present
@@ -406,13 +407,19 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         # if the session is known, compose the response with user data
         # TODO add a hard timelimit to the session
         sessionid = params['sessionid']
-        for s in self.session.query(Session).filter(Session.id == sessionid):
+        now = datetime.now()
+        limit = now - timedelta(hours=2)
+        for s in self.session.query(Session).filter(Session.id == sessionid, Session.created > limit):
             logger.success(f'authorized, valid session found: {sessionid} {s.user.email}')
             logger.info(f'email={s.user.email} id={s.user.id} name={s.user.name} superuser={s.user.superuser}')
             self.send_response(HTTPStatus.OK, "valid session")
             return bytes(f'email={s.user.email}\nid={s.user.id}\nname={s.user.name}\nsuperuser={s.user.superuser}', 'utf-8')
         self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
         logger.info(f'unauthorized, no valid session found: {sessionid}')
+        self.session.commit()
+        for s in self.session.query(Session).filter(Session.created <= limit):
+            self.session.delete(s)
+            logger.info(f'deleted session {s.id} for {s.user.email}')
         return None
 
     def do_logout(self):
@@ -474,8 +481,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         # TODO add a hard timelimit to the session
         if 'session' in self.cookie:
             logger.info(self.cookie['session'])
-            s = self.session.query(Session).filter(Session.id == self.cookie['session'].value).one()
-            if s:
+            for s in self.session.query(Session).filter(Session.id == self.cookie['session'].value):
                 if s.user.superuser:
                     logger.success(f'/stats authorized for user {s.user.email}')
                     self.send_response(HTTPStatus.OK, "valid session")
@@ -483,6 +489,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     users = json.dumps([u for u in self.session.query(ob)], default=alchemyencoder)
                     return bytes(f'{{"data": {users}}}', 'utf-8')
                 logger.info(f'unauthorized, {s.user.email} (s.user.name) is not a superuser ({s.user.superuser})')
+                break
             logger.info(f"unauthorized, no valid session found: {self.cookie['session'].value}")
         else:
             logger.info('unauthorized, no session cookie provided')
@@ -521,7 +528,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             global DBSession
             # TODO can session act as a context manager (and roll back if an exception happens)?
             self.session = DBSession()
-
+            logger.info(session)
             self.cookie = self.get_cookies()
 
             content_length = int(self.headers['Content-Length'])
@@ -536,6 +543,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             content = self.dispatch(self.path)
 
             self.session.commit()
+            self.session.close()
 
             if content:
                 logger.debug(f'response content {content}')
@@ -563,6 +571,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
             global DBSession
             session = DBSession()
+            logger.info(session)
             url = urlparse(self.path)
             if url.path == '/confirmregistration':
                 if not allowed_sessionid(url.query):
@@ -669,6 +678,7 @@ if __name__ == '__main__':
     global DBSession
     DBSession = sessionmaker(bind=db_engine)
     session = DBSession()
+    logger.info(session)
     for s in session.query(User).filter(User.email == username):
         logger.info(f"deleting user {s.email}")
         session.delete(s)
@@ -677,6 +687,7 @@ if __name__ == '__main__':
     session.add(ns)
     logger.info(f"adding admin user {ns.email}")
     session.commit()
+    session.close()
 
     socketserver.TCPServer.allow_reuse_address = True  # on the class! (not the instance)
     with socketserver.TCPServer(("", args.port), MyHTTPRequestHandler) as httpd:
