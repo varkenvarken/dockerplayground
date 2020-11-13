@@ -12,7 +12,7 @@ jobs:
       run: |
         sudo apt install httpie
         python -m pip install --upgrade pip setuptools wheel
-        pip install PyMySQL PyMySQL[rsa] SQLAlchemy loguru regex
+        python -m pip install PyMySQL PyMySQL[rsa] SQLAlchemy loguru regex
     - name: Run tests
       run: |
         make testauthserver
