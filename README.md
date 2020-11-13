@@ -12,7 +12,9 @@ General notes are being documented on [a separate website](https://varkenvarken.
 
 The application we implement is a simple book collection app, suitable for multiple users. However, that is not what this project is about. We focus here on building a solution with different components that should be independent from each other, scalable and run as docker containers.
 
-This means for example we have a separate database server (MySQL), an authentication server (in Python), a REST based objectstore (using Falcon) a frontend server (Python again) and a reverse proxy (Traefik) to forward incoming requests to the appropriate servers. We will even add metrics collection with prometheus and a dashboard with Grafana. 
+This means for example we have a separate database server (MySQL), an authentication server (in Python), a REST based objectstore (using Falcon) a frontend server (NGINX) and a reverse proxy (Traefik) to forward incoming requests to the appropriate servers. We will even add metrics collection with Prometheus and a dashboard with Grafana.
+
+A bit of a sidequest is the development of an authentication server. The aim here is to develop a server that can do login/user/session management and registration of new users with email verificatiin. And this server should be independent of the rest of the book application so that we can reuse it later. Writing a robust and secure authorizatiin server is not simple and I do not claim to be a security expert but we will carefully check the final implementation against the various checklists of [owasp.org](owasp.org)
 
 # quick start
 
@@ -20,7 +22,10 @@ This means for example we have a separate database server (MySQL), an authentica
 - clone this Git repo
 - for a local installation, make sure you have a DNS entry that resolves to your localhost (e.g. myserver.local)
 - change the docker-compose.yml to override the FQDN build arg with that same name
-- change the contents of the files in the secrets/ folder or override them by setting the enviromment variables SMTP_SERVER SMTP_USER SMTP_PASSWORD (to access the mailserver for sending registration confirmation emails) and ADMIN_USER ADMIN_PASSWORD (to set the admin credentials)
+- change the contents of the files in the secrets/ folder or override them by setting the enviromment variables
+    - SMTP_SERVER SMTP_USER SMTP_PASSWORD (to access the mailserver for sending registration confirmation emails) and
+    - ADMIN_USER ADMIN_PASSWORD (to set the admin credentials. They should be a valid email address and a complex enough password respectively)
+    -DOMAIN (the name of the domain, e,g myserver.local)
 - docker-compose up -d
 - browse to https://myserver.local
 
