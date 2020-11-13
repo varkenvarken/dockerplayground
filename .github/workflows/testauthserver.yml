@@ -11,6 +11,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt install httpie
+        python -m pip install --upgrade pip setuptools wheel
+        pip install PyMySQL PyMySQL[rsa] SQLAlchemy loguru regex
     - name: Run tests
       run: |
         make testauthserver
