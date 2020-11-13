@@ -25,7 +25,7 @@ A bit of a sidequest is the development of an authentication server. The aim her
 - change the contents of the files in the secrets/ folder or override them by setting the enviromment variables
     - SMTP_SERVER SMTP_USER SMTP_PASSWORD (to access the mailserver for sending registration confirmation emails) and
     - ADMIN_USER ADMIN_PASSWORD (to set the admin credentials. They should be a valid email address and a complex enough password respectively)
-    -DOMAIN (the name of the domain, e,g myserver.local)
+    - DOMAIN (the name of the domain, e,g myserver.local)
 - docker-compose up -d
 - browse to https://myserver.local
 
