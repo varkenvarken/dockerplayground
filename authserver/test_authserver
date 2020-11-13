@@ -1,0 +1,126 @@
+#!/bin/bash
+
+export DOMAIN=127.0.0.1
+export APPLICATION=/dummy
+export LOGINSCREEN=/dummy/loginscreen
+# next two are relative (point to the same server)
+export CONFIRMREGISTRATION=confirmregistrationu
+export RESETPASSWORD=resetpassword
+
+export DATABASE=user.db
+export ADMIN_USER=test@example.org
+export ADMIN_PASSWORD=s3Cret!!
+
+export DEBUGLEVEL=CRITICAL
+
+export SESSION=./mysession
+
+http="http --ignore-stdin --timeout=5"
+# make sure we always terminate the server
+set -e
+clean_up () {
+    ARG=$?
+    echo
+    echo "removing server"
+    kill %1
+    exit $ARG
+} 
+trap clean_up EXIT
+
+# start the server in the background and make sure it has a bit of time to startup
+rm -f $DATABASE $SESSION
+python server.py -d $DATABASE &
+sleep 2
+
+echo -n "check: GET localhost:8005  --> 404"
+$http -ph GET localhost:8005 | head -1 | grep ' 404 ' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: GET localhost:8005/login  --> 404"
+$http -ph GET localhost:8005/login | head -1 | grep ' 404 ' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/login  --> 303"
+$http -ph POST localhost:8005/login | head -1 | grep ' 303 ' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/login  --> Location: $LOGINSCREEN?failed"
+$http -ph POST localhost:8005/login | grep "Location: $LOGINSCREEN?failed" > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login  --> 200"
+$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login  --> Location: $APPLICATION"
+$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login | grep "Location: $APPLICATION" > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login  --> Correct cookie"
+$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login | grep -P "session=[0-9a-f]{32};\s+Domain=$DOMAIN;" > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/login email=unknown@example.org password=$ADMIN_PASSWORD login=Login  --> cookie None"
+$http -ph -f POST localhost:8005/login email=unknown@example.org password=$ADMIN_PASSWORD login=Login | grep -P "session=None;\s+Domain=$DOMAIN;" > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+# unfortunately httpie doesn't store cookies as it should so sessions are useless
+echo -n "check: login followed by logout"
+$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login | grep -P "session=[0-9a-f]{32}" > $SESSION
+sessionid=`grep -oE "session=[0-9a-f]{32}" $SESSION`
+$http -ph -f POST localhost:8005/logout Cookie:$sessionid | head -1 | grep ' 200 ' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
