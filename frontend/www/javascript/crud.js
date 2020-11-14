@@ -7,6 +7,8 @@ $(document).ready(function() {
         }
     });
 
+    $.fn.dataTable.ext.errMode = 'none'; // we add an error handler to the datatables initialization
+
     // link to same server on a different port
     var restendpointbooks = '/objects/books';
     var restendpointimages = '/objects/images';
@@ -176,7 +178,12 @@ $(document).ready(function() {
                 error: error
             });
         }
-    });
+    }).on('xhr.dt', function ( e, settings, json, xhr ) {
+        if(json == null){ 
+            console.log('ajaxerror',xhr.getResponseHeader('Location'));
+            window.location.replace(xhr.getResponseHeader('Location'));
+        }
+    } );
 
     // we want to redirect, not click. See: https://stackoverflow.com/questions/503093/how-do-i-redirect-to-another-webpage
     $('#logout').click(

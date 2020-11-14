@@ -140,7 +140,8 @@ class VerificationMixin:
                     return
                 except KeyError:
                     pass  # fall through on missing keys
-        raise falcon.HTTPUnauthorized('/auth/login')  # this does NOT redirect, but returns this as json
+        resp.set_header('Location', '/books/login.html')
+        raise falcon.HTTPUnauthorized('')  # this does NOT redirect, but returns this as json
 
 
 class BookCollectionResource(CollectionResource, VerificationMixin):
