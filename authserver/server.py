@@ -46,6 +46,16 @@ from loguru import logger
 logger.remove()
 logger.add(sys.stderr, level=os.environ['DEBUGLEVEL'] if 'DEBUGLEVEL' in os.environ else 'DEBUG')
 
+
+def number(variable, default):
+    """
+    Return the integer in the environment variable.
+    """
+    if variable in os.environ:
+        return int(os.environ[variable])
+    return int(default)
+
+
 # domain to be used in session cookie
 DOMAIN              = os.environ['DOMAIN']               # e.g. yourdomain.org
 # redirect locations for successful logon
@@ -54,6 +64,15 @@ LOGINSCREEN         = os.environ['LOGINSCREEN']          # e.g. /books/login.htm
 # these get used in confirmation emails:
 CONFIRMREGISTRATION = os.environ['CONFIRMREGISTRATION']  # e.g. https://server.yourdomain.org/auth/confirmregistration
 RESETPASSWORD       = os.environ['RESETPASSWORD']        # e.g. https://server.yourdomain.org/auth/resetpassword
+
+# session limits in minutes
+SOFTTIMEOUT = number('SOFTTIMEOUT', 30)
+HARDTIMEOUT = number('HARDTIMEOUT', 8 * 60)
+
+# confirmation limits in minutes
+PWRESETTIMEOUT = number('PWRESETTIMEOUT', 1 * 60)
+REGISTERTIMEOUT = number('REGISTERTIMEOUT', 1 * 60)
+
 
 SESSIONID_pattern   = compile(r"[01-9a-f]{32}")                 # 32 hexadecimal lowercase characters
 EMAIL_pattern       = compile(r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*")  # rough check: something@subdomain.domain.toplevel  any number of subdomains but cannot start or end with a dot and must contain a domain and a toplevel
@@ -207,10 +226,12 @@ class User(Base):
 
 class Session(Base):
     __tablename__ = 'session'
-    id       = Column(String(34), primary_key=True)  # holds a guid
-    created  = Column(DateTime(), default=datetime.now())
-    userid   = Column(Integer, ForeignKey('user.id'))
-    user     = relationship(User)
+    id          = Column(String(34), primary_key=True)  # holds a guid
+    created     = Column(DateTime(), default=datetime.now())
+    softlimit   = Column(DateTime(), default=datetime.now())
+    hardlimit   = Column(DateTime(), default=datetime.now())
+    userid      = Column(Integer, ForeignKey('user.id'))
+    user        = relationship(User)
 
 
 class PendingUser(Base):
@@ -220,12 +241,14 @@ class PendingUser(Base):
     name        = Column(String(100))
     password    = Column(String(100))
     created     = Column(DateTime(), default=datetime.now())
+    expires     = Column(DateTime(), default=datetime.now())
 
 
 class PasswordReset(Base):
     __tablename__ = 'passwordreset'
     id          = Column(String(34), primary_key=True)  # holds a guid
     created     = Column(DateTime(), default=datetime.now())
+    expires     = Column(DateTime(), default=datetime.now())
     userid      = Column(Integer, ForeignKey('user.id'))
     user        = relationship(User)
 
@@ -312,7 +335,10 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                             self.redirect_header("Login succeeded", APPLICATION)
                             for s in self.session.query(Session).filter(Session.userid == user.id):
                                 self.session.delete(s)
-                            ns = Session(userid=user.id, id=guid().hex)
+                            now = datetime.now()
+                            softlimit = now + timedelta(minutes=SOFTTIMEOUT)
+                            hardlimit = now + timedelta(minutes=HARDTIMEOUT)
+                            ns = Session(userid=user.id, id=guid().hex, created=now, softlimit=softlimit, hardlimit=hardlimit)
                             self.session.add(ns)
                             self.send_session_cookie(ns.id)
                             logger.success(f'user succesfully authenticated {user.email}')
@@ -392,6 +418,18 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         """, "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
                     return None
 
+    def session_active(self):
+        sessionid = self.params['sessionid']
+        now = datetime.now()
+        for s in self.session.query(Session).filter(Session.id == sessionid, now < Session.hardlimit):
+            if now < s.softlimit:
+                logger.success(f'active session found: {sessionid} {s.user.email}')
+                logger.info(f'email={s.user.email} id={s.user.id} name={s.user.name} superuser={s.user.superuser}')
+                s.softlimit = now + timedelta(minutes=SOFTTIMEOUT)
+                logger.debug(s.softlimit)
+                return bytes(f'email={s.user.email}\nid={s.user.id}\nname={s.user.name}\nsuperuser={s.user.superuser}', 'utf-8')
+        return None
+
     def do_verifysession(self):
         global DBSession
         params = self.params
@@ -405,19 +443,13 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
             logger.info('unauthorized, sessionid does not have proper format')
         # if the session is known, compose the response with user data
-        # TODO add a hard timelimit to the session
-        sessionid = params['sessionid']
-        now = datetime.now()
-        limit = now - timedelta(hours=2)
-        for s in self.session.query(Session).filter(Session.id == sessionid, Session.created > limit):
-            logger.success(f'authorized, valid session found: {sessionid} {s.user.email}')
-            logger.info(f'email={s.user.email} id={s.user.id} name={s.user.name} superuser={s.user.superuser}')
+        if (info := self.session_active()) is not None:
             self.send_response(HTTPStatus.OK, "valid session")
-            return bytes(f'email={s.user.email}\nid={s.user.id}\nname={s.user.name}\nsuperuser={s.user.superuser}', 'utf-8')
+            return info
         self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-        logger.info(f'unauthorized, no valid session found: {sessionid}')
+        logger.info(f"unauthorized, no valid session found: {params['sessionid']}")
         self.session.commit()
-        for s in self.session.query(Session).filter(Session.created <= limit):
+        for s in self.session.query(Session).filter(Session.hardlimit <= datetime.now()):
             self.session.delete(s)
             logger.info(f'deleted session {s.id} for {s.user.email}')
         return None

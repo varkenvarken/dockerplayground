@@ -83,6 +83,18 @@ $(document).ready(function() {
         title: "Created",
         render: timestamp,
         readonly:true
+        },
+        {
+        data: "softlimit",
+        title: "Soft limit",
+        render: timestamp,
+        readonly:true
+        },
+        {
+        data: "hardlimit",
+        title: "Hard limit",
+        render: timestamp,
+        readonly:true
         }
     ];
 
