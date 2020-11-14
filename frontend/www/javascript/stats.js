@@ -1,8 +1,16 @@
 $(document).ready(function() {
 
     function timestamp( data, type, row ) {
-        // no need for Date(data).toISOString()
-        return data.slice(0, 19).replace(/-/g, "/").replace("T", " ");
+        // return the timestamp in local timezone, but always as yyyy-mm-dd hh:mm:ss
+        // data should be a timestring in iso format in UTC without the trailing Z)
+        var date = new Date(data+'Z')
+        var dd = date.getDate().toString().padStart(2,'0');
+        var mm = (date.getMonth()+1).toString().padStart(2,'0');
+        var yy = date.getFullYear().toString().padStart(4,'0');
+        var h  = date.getHours().toString().padStart(2,'0');
+        var m  = date.getMinutes().toString().padStart(2,'0');
+        var s  = date.getSeconds().toString().padStart(2,'0');
+        return yy+"-"+mm+"-"+dd+" "+h+":"+m+":"+s;
     }
     
     $.ajaxSetup({
@@ -119,6 +127,12 @@ $(document).ready(function() {
         title: "Created",
         render: timestamp,
         readonly:true
+        },
+        {
+        data: "expires",
+        title: "Expires",
+        render: timestamp,
+        readonly:true
         }
     ];
 
@@ -136,6 +150,12 @@ $(document).ready(function() {
         {
         data: "created",
         title: "Created",
+        render: timestamp,
+        readonly:true
+        },
+        {
+        data: "expires",
+        title: "Expires",
         render: timestamp,
         readonly:true
         }
