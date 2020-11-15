@@ -14,6 +14,7 @@ export ADMIN_PASSWORD=s3Cret!!
 export DEBUGLEVEL=CRITICAL
 
 export SESSION=./mysession
+export RESPONSE=./myresponse
 
 http="http --ignore-stdin --timeout=5"
 # make sure we always terminate the server
@@ -28,7 +29,7 @@ clean_up () {
 trap clean_up EXIT
 
 # start the server in the background and make sure it has a bit of time to startup
-rm -f $DATABASE $SESSION
+rm -f $DATABASE $SESSION $RESPONSE
 python server.py -d $DATABASE &
 sleep 2
 
@@ -112,11 +113,11 @@ else
   exit 1
 fi
 
-# unfortunately httpie doesn't store cookies as it should so sessions are useless
-echo -n "check: login followed by logout"
+# unfortunately httpie doesn't store cookies as it should so sessions are useless and we have to store the session cookie ourselves
+echo -n "check: login"
 $http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login | grep -P "session=[0-9a-f]{32}" > $SESSION
-sessionid=`grep -oE "session=[0-9a-f]{32}" $SESSION`
-$http -ph -f POST localhost:8005/logout Cookie:$sessionid | head -1 | grep ' 200 ' > /dev/null
+sessioncookie=`grep -oE "session=[0-9a-f]{32}" $SESSION`
+sessionid=`echo  $sessioncookie | grep -oE "[0-9a-f]{32}"`
 if [ $? -eq 0 ]
 then
   echo ": pass"
@@ -124,3 +125,42 @@ else
   echo ": fail"
   exit 1
 fi
+echo -n "check: verifysession 200 ok"
+$http -phb -f POST localhost:8005/verifysession sessionid=$sessionid > $RESPONSE
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+echo -n "check: verifysession body contains email=$ADMIN_USER"
+grep "email=$ADMIN_USER" $RESPONSE > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: logout"
+$http -ph -f POST localhost:8005/logout Cookie:$sessioncookie | head -1 | grep ' 200 ' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+echo -n "check: verifysession expired 401 "
+$http -ph -f POST localhost:8005/verifysession sessionid=$sessionid  | head -1 | grep ' 401 ' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo tests done
