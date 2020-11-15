@@ -35,6 +35,7 @@ from regex import compile  # we use an alternative regular expression library he
 from smtp import fetch_smtp_params, mail
 from decimal import Decimal
 import json
+from collections import defaultdict
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
@@ -172,7 +173,7 @@ def allowed_password(s):
 
 
 def get_params(body):
-    params = {}
+    params = defaultdict(str)
     for p in body.decode('utf-8').split('&'):
         if len(p.strip()) == 0:
             continue
@@ -436,18 +437,17 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         # we only allow sessions to be verified by apps running on the same
         # network, i.e. they should not have any X- headers present
         if self.xheaders_present:
-            self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
             logger.info('unauthorized, verifysession called from outside')
         # verify that incoming parameters are what we expect
-        if not verify_verifysession_params(params):
-            self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
+        elif not verify_verifysession_params(params):
             logger.info('unauthorized, sessionid does not have proper format')
         # if the session is known, compose the response with user data
-        if (info := self.session_active()) is not None:
+        elif (info := self.session_active()) is not None:
             self.send_response(HTTPStatus.OK, "valid session")
             return info
+        else:
+            logger.info(f"unauthorized, no valid session found: {params['sessionid']}")
         self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-        logger.info(f"unauthorized, no valid session found: {params['sessionid']}")
         self.session.commit()
         for s in self.session.query(Session).filter(Session.hardlimit <= datetime.now()):
             self.session.delete(s)
@@ -459,7 +459,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             logger.info('bad request: logout request should not have parameters')
             self.send_error(HTTPStatus.BAD_REQUEST, "Bad request")
             return None
-        if 'session' in self.cookie:
+        elif 'session' in self.cookie:
             logger.info(self.cookie['session'])
             for s in self.session.query(Session).filter(Session.id == self.cookie['session'].value):
                 logger.debug(f"deleting session {s.id} for user {s.user.email}")
