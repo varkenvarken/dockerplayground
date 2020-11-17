@@ -1,0 +1,10 @@
+/restapi/stuff.db
+/objectstore/stuff.db
+.*\/stuff.db
+/stuff.db
+*.pyc
+/authserver/mysession
+/authserver/user.db
+/authserver/myresponse
+/authserver/logfile
+/authserver/tests
