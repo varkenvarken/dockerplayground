@@ -31,7 +31,6 @@ from hashlib import pbkdf2_hmac
 from hmac import compare_digest
 from os import urandom
 import os
-from regex import compile  # we use an alternative regular expression library here to support unicode classes like \p{L}
 from smtp import fetch_smtp_params, mail
 from decimal import Decimal
 import json
@@ -42,6 +41,9 @@ from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateT
 from sqlalchemy.orm import relationship, sessionmaker
 
 from loguru import logger
+
+from regex import compile  # we use an alternative regular expression library here to support unicode classes like \p{L}
+from regex.regex import Pattern
 
 
 logger.remove()
@@ -74,14 +76,11 @@ HARDTIMEOUT = number('HARDTIMEOUT', 8 * 60)
 PWRESETTIMEOUT = number('PWRESETTIMEOUT', 1 * 60)
 REGISTERTIMEOUT = number('REGISTERTIMEOUT', 1 * 60)
 
-
-SESSIONID_pattern   = compile(r"[01-9a-f]{32}")                 # 32 hexadecimal lowercase characters
-EMAIL_pattern       = compile(r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*")  # rough check: something@subdomain.domain.toplevel  any number of subdomains but cannot start or end with a dot and must contain a domain and a toplevel
+SESSIONID_pattern   = compile(r"[01-9a-f]{32}")
 PASSWORD_lower      = compile(r"[a-z]")
 PASSWORD_upper      = compile(r"[A-Z]")
 PASSWORD_digit      = compile(r"[01-9]")
 PASSWORD_special    = compile(r"[ !|@#$%^&*()\-_.,<>?/\\{}\[\]]")
-NAME_pattern        = compile(r"[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} ]+")  # letters, marks, digits in any language
 
 
 def newpassword(password):
@@ -103,25 +102,6 @@ def allowed_sessionid(s):
     if len(s) > 32:  # protect against overly long strings
         return False
     return bool(SESSIONID_pattern.fullmatch(s))
-
-
-def allowed_email(s):
-    """
-    Check if s is a valid email address format.
-
-    This is not an exhaustive check, the final truth is determined by
-    whether the email is delivered or not so this check is rather
-    permissive.
-    """
-    if len(s) > 100:  # protect against overly long strings
-        return False
-    return bool(EMAIL_pattern.fullmatch(s))
-
-
-def allowed_name(s):
-    if len(s) > 100:
-        return False
-    return bool(NAME_pattern.fullmatch(s))
 
 
 def verify_login_params(params):
@@ -159,6 +139,14 @@ def verify_stats_params(params):
 
 
 def allowed_password(s):
+    """
+    Check if a password meets the complexity criteria:
+    
+    - between 8 and 64 characters,
+    - contain at least 1 lowercase, 1 uppercase, 1 digit and 1 special character
+    - it may not contain characters outside those classes
+    - character classes *are* unicode aware 
+    """
     if len(s) > 64 or len(s) < 8:
         return False
     nlower = len(PASSWORD_lower.findall(s))
@@ -173,6 +161,13 @@ def allowed_password(s):
 
 
 def get_params(body):
+    """
+    Get the form encoded parameters from the body of a POST request.
+
+    The conten type should be application/x-www-form-urlencoded; charset=UTF-8.
+
+    returns a dict name:str -> value:str
+    """
     params = defaultdict(str)
     for p in body.decode('utf-8').split('&'):
         if len(p.strip()) == 0:
@@ -194,6 +189,53 @@ def valid_session(cookie, session):
     if not allowed_sessionid(cookie['session'].value):
         return False
     return bool(session.query(Session).filter(Session.id == cookie['session'].value).one())
+
+
+class ParameterSet:
+
+    """
+    Defines allowable input parameters for a POST request.
+    """
+
+    def __init__(self, specs):
+        """
+        specs is a dict name --> (ex, maxlength)
+
+        name is a case sentive name of an allowed input parameter
+        ex is either a string, a regular expression or a callable
+        maxlength is an integer
+
+        if ex is a string it is converted to a regular expression.
+        if ex is a callable it should return a boolean indicating the validity of a value.
+        """
+        self.specs = {}
+        for k, v in specs.items():
+            r, length = v
+            if isinstance(r, str):
+                self.specs[k] = compile(r), length
+            else:
+                self.specs[k] = r, length
+        self.keys = set(self.specs.keys())
+
+    def check(self, params):
+        """
+        return true if the params are all allowed.
+
+        params is a dict name --> value where name and value are strings
+
+        if params contains extra parameters or it is missing items it is considered invalid.
+        """
+        if set(params.keys()) == self.keys:  # all input names should be present
+            for k, v in params.items():
+                r, length = self.specs[k]
+                if len(v) > length:  # values that are too long are invalid
+                    return False
+                elif isinstance(r, Pattern):
+                    if not bool(r.fullmatch(v)):
+                        return False
+                elif not r(v):
+                    return False
+        return True
 
 
 Base = declarative_base()
@@ -259,6 +301,11 @@ class PasswordReset(Base):
 # and nothing is returned. That causes a 502 Bad gateway in Traefik
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
+    verifysession_params = ParameterSet({'sessionid': (r"[01-9a-f]{32}", 34)})
+    logout_params = ParameterSet({})
+    login_login_params = ParameterSet({'login': ('Login', 5), 'password': (allowed_password, 64), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
+    login_register_params = ParameterSet({'login': ('Register', 8), 'name': (r"[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} ]+", 100), 'password': (allowed_password, 64), 'password2': (allowed_password, 64), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
+
     def log_message(self, format, *args):
         """
         Overridden method, now logs original messages on trace level.
@@ -309,118 +356,116 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         for morsel in cookie.values():
             self.send_header("Set-Cookie", morsel.OutputString())
 
-    def do_login(self):
-        params = self.params
-        # verify necessary parameters are present
-        if not verify_login_params(params):
-            logger.info("/login input parameters not present or not correct")
-            self.login_failed()
-            return None
+    def do_login_login(self):
+        logger.info('/login login=Login')
+        if not MyHTTPRequestHandler.login_login_params.check(self.params):
+            logger.info('unauthorized, sessionid does not have proper format')
         else:
-            email = params['email'].lower()  # email param should be present in all login scenarios
-            if not allowed_email(email):
-                logger.info(f"/login invalid email format [{email[:120]}]")
-                self.login_failed()
-                return None
+            email = self.params['email']
+            user = self.session.query(User).filter(User.email == email).first()
+            if user:
+                logger.info(f"valid user found {user.email}")
+                if checkpassword(self.params['password'], user.password):
+                    self.redirect_header("Login succeeded", APPLICATION)
+                    for s in self.session.query(Session).filter(Session.userid == user.id):
+                        self.session.delete(s)
+                    now = datetime.now()
+                    softlimit = now + timedelta(minutes=SOFTTIMEOUT)
+                    hardlimit = now + timedelta(minutes=HARDTIMEOUT)
+                    ns = Session(userid=user.id, id=guid().hex, created=now, softlimit=softlimit, hardlimit=hardlimit)
+                    self.session.add(ns)
+                    self.send_session_cookie(ns.id)
+                    logger.success(f'user succesfully authenticated {user.email}')
+                else:
+                    logger.info(f'user authentication failed for known user {user.email}')
             else:
-                if params['login'] == 'Login':
-                    logger.info('/login login=Login')
-                    if not allowed_password(params['password']):
-                        logger.info(f"/login invalid password format [{params['password'][:70]}]")
-                        self.login_failed()
-                        return None
-                    user = self.session.query(User).filter(User.email == email).first()
-                    if user:
-                        logger.info(f"valid user found {user.email}")
-                        if checkpassword(params['password'], user.password):
-                            self.redirect_header("Login succeeded", APPLICATION)
-                            for s in self.session.query(Session).filter(Session.userid == user.id):
-                                self.session.delete(s)
-                            now = datetime.now()
-                            softlimit = now + timedelta(minutes=SOFTTIMEOUT)
-                            hardlimit = now + timedelta(minutes=HARDTIMEOUT)
-                            ns = Session(userid=user.id, id=guid().hex, created=now, softlimit=softlimit, hardlimit=hardlimit)
-                            self.session.add(ns)
-                            self.send_session_cookie(ns.id)
-                            logger.success(f'user succesfully authenticated {user.email}')
-                        else:
-                            logger.info(f'user authentication failed for known user {user.email}')
-                            self.login_failed()
-                    else:
-                        logger.info(f'user authentication failed for unknown user {email}')
-                        self.login_failed()
-                    return None
-                elif params['login'] == 'Register':
-                    logger.info('/login login=Register')
-                    # We always return the same response (and redirect) no matter
-                    # whether the email is in use or not or if anything else is wrong
-                    # this is to prevent indexing, i.e. checking which email addresses are in use
-                    if not allowed_password(params['password']):
-                        logger.info(f"invalid password format [{params['password'][:70]}]")
-                    elif not allowed_password(params['password2']):
-                        logger.info(f"invalid password format [{params['password2'][:70]}]")
-                    elif params['password'] != params['password2']:
-                        logger.info("passwords are not identical")
-                    elif user:
-                        logger.info(f'email already in use {user.email}')
-                    elif not allowed_name(params['name']):
-                        logger.info(f"name not allowed {params['name']}")
-                    else:
-                        user = self.session.query(PendingUser).filter(PendingUser.email == params['email']).first()
-                        if user:  # we delete previous pending registration to prevent database overfilling
-                            logger.info('previous registration not yet confirmed')
-                            self.session.delete(user)
-                            self.session.commit()
-                        else:
-                            logger.info('first registration')
-                        pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']), name=params['name'])
-                        self.session.add(pu)
-                        self.session.commit()
-                        # TODO we should make sure that a limited number of emails are sent to the same address
-                        user = self.session.query(PendingUser).filter(PendingUser.email == params['email']).first()
-                        logger.success(f"sending confirmation mail to {user.email} (user.name)")
-                        u, p, s = fetch_smtp_params()
-                        mail(f"""
-                        Hi {user.name},
+                logger.info(f'user authentication failed for unknown user {email}')
+        self.login_failed()
 
-                        Please confirm your registration on Book collection.
+    def do_login_register(self):
+        logger.info('/login login=Register')
+        if not MyHTTPRequestHandler.login_register_params.check(self.params):
+            logger.info('unauthorized, login register params do not have proper format')
+        else:
+            email = self.params['email']
+            user = self.session.query(User).filter(User.email == email).first()
+            # We always return the same response (and redirect) no matter
+            # whether the email is in use or not or if anything else is wrong
+            # this is to prevent indexing, i.e. checking which email addresses are in use
+            params = self.params
+            if params['password'] != params['password2']:
+                logger.info("passwords are not identical")
+            elif user:
+                logger.info(f'email already in use {user.email}')
+            else:
+                user = self.session.query(PendingUser).filter(PendingUser.email == params['email']).first()
+                if user:  # we delete previous pending registration to prevent database overfilling
+                    logger.info('previous registration not yet confirmed')
+                    self.session.delete(user)
+                    self.session.commit()
+                else:
+                    logger.info('first registration')
+                pu = PendingUser(id=guid().hex, email=params['email'], password=newpassword(params['password']), name=params['name'])
+                self.session.add(pu)
+                self.session.commit()
+                # TODO we should make sure that a limited number of emails are sent to the same address
+                user = self.session.query(PendingUser).filter(PendingUser.email == params['email']).first()
+                logger.success(f"sending confirmation mail to {user.email} (user.name)")
+                u, p, s = fetch_smtp_params()
+                mail(f"""
+                Hi {user.name},
 
-                        {CONFIRMREGISTRATION}?{pu.id}
+                Please confirm your registration on Book collection.
 
-                        """,
-                             "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
-                    self.redirect_start("Registration pending confirmation, email sent to email address", f"{LOGINSCREEN}?pending")
-                    self.send_session_cookie(None)
-                    return None
-                elif params['login'] == 'Forgot':
-                    logger.info('/login login=Forgot')
+                {CONFIRMREGISTRATION}?{pu.id}
 
-                    # we always send the same response, no matter if the user exists or not
-                    self.redirect_start("Email sent", f"{LOGINSCREEN}?checkemail")
-                    self.send_session_cookie(None)
+                """,
+                     "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+            self.redirect_start("Registration pending confirmation, email sent to email address", f"{LOGINSCREEN}?pending")
+            self.send_session_cookie(None)
 
-                    user = self.session.query(User).filter(User.email == params['email']).first()
-                    if not user:  # no user found but we are not providing this information
-                        logger.info(f"no user found {params['email']}")
-                    else:
-                        logger.info(f"password reset request received for existing user {params['email']}")
-                        pr = PasswordReset(id=guid().hex, userid=user.id)
-                        self.session.add(pr)
-                        self.session.commit()
-                        u, p, s = fetch_smtp_params()
-                        mail(f"""
-                        Hi {user.name},
+    def do_login_forgot(self):
+        logger.info('/login login=Forgot')
+        email = self.params['email']
+        user = self.session.query(User).filter(User.email == email).first()
+        params = self.params
 
-                        We received a request to reset your password. If it wasn't you, please ignore this message.
-                        Otherwise, follow this link and select a new password.
+        # we always send the same response, no matter if the user exists or not
+        self.redirect_start("Email sent", f"{LOGINSCREEN}?checkemail")
+        self.send_session_cookie(None)
 
-                        RESETPASSWORD?{pr.id}
+        user = self.session.query(User).filter(User.email == params['email']).first()
+        if not user:  # no user found but we are not providing this information
+            logger.info(f"no user found {params['email']}")
+        else:
+            logger.info(f"password reset request received for existing user {params['email']}")
+            pr = PasswordReset(id=guid().hex, userid=user.id)
+            self.session.add(pr)
+            self.session.commit()
+            u, p, s = fetch_smtp_params()
+            mail(f"""
+            Hi {user.name},
 
-                        """, "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
-                    return None
+            We received a request to reset your password. If it wasn't you, please ignore this message.
+            Otherwise, follow this link and select a new password.
 
-    def session_active(self):
-        sessionid = self.params['sessionid']
+            RESETPASSWORD?{pr.id}
+
+            """, "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+        return None
+
+    def do_login(self):
+        if 'login' in self.params and self.params['login'] == 'Login':
+            self.do_login_login()
+        elif self.params['login'] == 'Register':
+            self.do_login_register()
+        elif self.params['login'] == 'Forgot':
+            self.do_login_forgot()
+        else:
+            logger.info('no login parameter')
+            self.login_failed()
+
+    def session_active(self, sessionid):
         now = datetime.now()
         for s in self.session.query(Session).filter(Session.id == sessionid, now < Session.hardlimit):
             if now < s.softlimit:
@@ -439,10 +484,10 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         if self.xheaders_present:
             logger.info('unauthorized, verifysession called from outside')
         # verify that incoming parameters are what we expect
-        elif not verify_verifysession_params(params):
+        elif not MyHTTPRequestHandler.verifysession_params.check(self.params):
             logger.info('unauthorized, sessionid does not have proper format')
         # if the session is known, compose the response with user data
-        elif (info := self.session_active()) is not None:
+        elif (info := self.session_active(self.params['sessionid'])) is not None:
             self.send_response(HTTPStatus.OK, "valid session")
             return info
         else:
@@ -455,10 +500,8 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         return None
 
     def do_logout(self):
-        if len(self.params):
+        if not MyHTTPRequestHandler.logout_params.check(self.params):
             logger.info('bad request: logout request should not have parameters')
-            self.send_error(HTTPStatus.BAD_REQUEST, "Bad request")
-            return None
         elif 'session' in self.cookie:
             logger.info(self.cookie['session'])
             for s in self.session.query(Session).filter(Session.id == self.cookie['session'].value):
