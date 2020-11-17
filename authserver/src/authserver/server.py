@@ -1,4 +1,4 @@
-#  server.py, an AAA server
+#  server.py, part of the authserver package
 #
 #  part of https://github.com/varkenvarken/dockerplayground
 #
@@ -24,7 +24,6 @@ from http.server import BaseHTTPRequestHandler
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse, unquote_plus
-import sys
 from datetime import datetime, date, timedelta
 from uuid import uuid4 as guid
 from hashlib import pbkdf2_hmac
@@ -35,6 +34,7 @@ from smtp import fetch_smtp_params, mail
 from decimal import Decimal
 import json
 from collections import defaultdict
+from time import sleep
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
@@ -44,10 +44,6 @@ from loguru import logger
 
 from regex import compile  # we use an alternative regular expression library here to support unicode classes like \p{L}
 from regex.regex import Pattern
-
-
-logger.remove()
-logger.add(sys.stderr, level=os.environ['DEBUGLEVEL'] if 'DEBUGLEVEL' in os.environ else 'DEBUG')
 
 
 def number(variable, default):
@@ -141,11 +137,11 @@ def verify_stats_params(params):
 def allowed_password(s):
     """
     Check if a password meets the complexity criteria:
-    
+
     - between 8 and 64 characters,
     - contain at least 1 lowercase, 1 uppercase, 1 digit and 1 special character
     - it may not contain characters outside those classes
-    - character classes *are* unicode aware 
+    - character classes *are* unicode aware
     """
     if len(s) > 64 or len(s) < 8:
         return False
@@ -376,6 +372,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.session.add(ns)
                     self.send_session_cookie(ns.id)
                     logger.success(f'user succesfully authenticated {user.email}')
+                    return
                 else:
                     logger.info(f'user authentication failed for known user {user.email}')
             else:
@@ -477,7 +474,6 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         return None
 
     def do_verifysession(self):
-        global DBSession
         params = self.params
         # we only allow sessions to be verified by apps running on the same
         # network, i.e. they should not have any X- headers present
@@ -585,6 +581,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         return self.do_unknown()
 
     def do_POST(self):
+        global DBSession
         # check if an X-header is present
         # this signifies that the request was forwarded by traefik
         # i.e. is coming from the outside
@@ -599,11 +596,10 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             logger.debug(f'{h}: {self.headers[h]}')
             if h.startswith('X-'):
                 self.xheaders_present = True
-        try:
-            global DBSession
+        # try:
+        if True:
             # TODO can session act as a context manager (and roll back if an exception happens)?
             self.session = DBSession()
-            logger.info(session)
             self.cookie = self.get_cookies()
 
             content_length = int(self.headers['Content-Length'])
@@ -632,19 +628,19 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
             logger.debug('done')
             return None
-        except Exception as e:
-            logger.exception(e)
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
-            return None
+        # except Exception as e:
+        #    logger.exception(e)
+        #    self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        #    return None
 
     def do_GET(self):
+        global DBSession
         try:
             fromip = self.headers['X-Forwarded-For'] if 'X-Forwarded-For' in self.headers else 'internal net'
             logger.info(self.address_string())
             logger.info(f'GET from {fromip}')
             logger.info(f'url {self.path}')
 
-            global DBSession
             session = DBSession()
             logger.info(session)
             url = urlparse(self.path)
@@ -712,28 +708,29 @@ def fetch_admin_params():
     return env['ADMIN_USER'], env['ADMIN_PASSWORD']
 
 
-if __name__ == '__main__':
-    import argparse
-    from time import sleep
-    from sys import exit
-    import socketserver
+def add_superuser():
+    global DBSession
+    username, password = fetch_admin_params()
+    session = DBSession()
+    for s in session.query(User).filter(User.email == username):
+        logger.info(f"deleting user {s.email}")
+        session.delete(s)
+    session.commit()
+    ns = User(email=username, password=newpassword(password), name='Administrator', superuser=True)
+    session.add(ns)
+    logger.info(f"adding admin user {ns.email}")
+    session.commit()
+    session.close()
+    return True
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--port', '-p', default=8005, type=int, help='application port')
-    parser.add_argument('--backoff', '-b', default=2, type=int, help='start seconds to wait on db connection (doubles every try)')
-    parser.add_argument('--retries', '-r', default=3, type=int, help='number of times to retry initial database connection')
-    parser.add_argument('--database', '-d', default='/usr/src/app/user.db', type=str, help='number of times to retry initial database connection')
-    args = parser.parse_args()
 
-    connection = f"sqlite:///{args.database}"
-
+def get_sessionmaker(connection, timeout, retries):
+    global DBSession
     # this does not open a connection (yet), that will happen on create_all
     db_engine = create_engine(connection, pool_pre_ping=True)
 
     # we try to connect to the database several times
     waited = 0
-    timeout = args.backoff
-    retries = args.retries
     for i in range(1, retries):
         try:
             Base.metadata.create_all(db_engine)
@@ -747,24 +744,6 @@ if __name__ == '__main__':
             continue
     else:
         logger.critical(f"No database connections after {retries} tries ({waited} seconds)")
-        exit(111)
-
-    username, password = fetch_admin_params()
-    global DBSession
+        return False
     DBSession = sessionmaker(bind=db_engine)
-    session = DBSession()
-    logger.info(session)
-    for s in session.query(User).filter(User.email == username):
-        logger.info(f"deleting user {s.email}")
-        session.delete(s)
-    session.commit()
-    ns = User(email=username, password=newpassword(password), name='Administrator', superuser=True)
-    session.add(ns)
-    logger.info(f"adding admin user {ns.email}")
-    session.commit()
-    session.close()
-
-    socketserver.TCPServer.allow_reuse_address = True  # on the class! (not the instance)
-    with socketserver.TCPServer(("", args.port), MyHTTPRequestHandler) as httpd:
-        logger.info(f"serving at port {args.port}")
-        httpd.serve_forever()
+    return True

@@ -31,7 +31,7 @@ trap clean_up EXIT
 
 # start the server in the background and make sure it has a bit of time to startup
 rm -f $DATABASE $SESSION $RESPONSE
-python server.py -d $DATABASE > $SERVERLOG 2>&1 &
+PYTHONPATH=src python -m authserver -d $DATABASE > $SERVERLOG 2>&1 &
 sleep 2
 
 echo -n "check: GET localhost:8005  --> 404"
