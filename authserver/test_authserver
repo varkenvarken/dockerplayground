@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# switch to same directory as this script
+cd "${0%/*}"
+
 export DOMAIN=127.0.0.1
 export APPLICATION=/dummy
 export LOGINSCREEN=/dummy/loginscreen
@@ -16,6 +19,12 @@ export DEBUGLEVEL=INFO
 export SESSION=./mysession
 export RESPONSE=./myresponse
 export SERVERLOG=./logfile
+
+echo pytest unit tests
+
+PYTHONPATH=src pytest
+
+echo functional tests
 
 http="http --ignore-stdin --timeout=5"
 # make sure we always terminate the server
