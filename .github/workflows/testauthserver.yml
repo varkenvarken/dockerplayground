@@ -27,9 +27,9 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: code-coverage-report
-        path: coverage_report.txt
+        path: authserver/coverage_report.txt
     - name: Archive unittest results
       uses: actions/upload-artifact@v2
       with:
         name: unittest-report
-        path: unittest_report.txt
+        path: authserver/unittest_report.txt
