@@ -1,0 +1,3 @@
+[run]
+omit=/usr/*,*/site-packages/*
+parallel=true

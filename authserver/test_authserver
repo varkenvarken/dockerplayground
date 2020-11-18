@@ -20,9 +20,12 @@ export SESSION=./mysession
 export RESPONSE=./myresponse
 export SERVERLOG=./logfile
 
+export COVERAGE_PROCESS_START=/home/michel/dockerplayground/authserver/.coveragerc
+rm -f .coverage .coverage.*
+
 echo pytest unit tests
 
-PYTHONPATH=src coverage run --omit '/usr/*,*/site-packages/*' -m pytest > unittest_report.txt
+PYTHONPATH=src pytest > unittest_report.txt
 if [ $? -eq 0 ]
 then
   echo ": unit tests pass"
@@ -30,8 +33,6 @@ else
   echo ": unit tests fail"
   exit 1
 fi
-coverage html
-coverage report > coverage_report.txt
 
 echo functional tests
 
@@ -49,8 +50,11 @@ trap clean_up EXIT
 
 # start the server in the background and make sure it has a bit of time to startup
 rm -f $DATABASE $SESSION $RESPONSE
+
 PYTHONPATH=src python -m authserver -d $DATABASE > $SERVERLOG 2>&1 &
 sleep 2
+
+unset COVERAGE_PROCESS_START
 
 echo -n "check: GET localhost:8005  --> 404"
 $http -ph GET localhost:8005 | head -1 | grep ' 404 ' > /dev/null
@@ -183,3 +187,16 @@ else
 fi
 
 echo tests done
+
+echo "removing server"
+kill %1
+sleep 1
+
+echo generating coverage reports
+
+coverage combine
+coverage html
+coverage report > coverage_report.txt
+
+echo all done
+

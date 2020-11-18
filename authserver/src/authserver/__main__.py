@@ -18,7 +18,6 @@
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
-
 import argparse
 import socketserver
 from os import environ
@@ -27,6 +26,15 @@ from sys import stderr
 from loguru import logger
 
 from .server import MyHTTPRequestHandler, get_sessionmaker, add_superuser
+
+stop=False
+import signal
+def handler(signum, frame):
+    global stop
+    print('Signal handler called with signal', signum)
+    stop=True
+
+signal.signal(signal.SIGTERM, handler)
 
 logger.remove()
 logger.add(stderr, level=environ['DEBUGLEVEL'] if 'DEBUGLEVEL' in environ else 'DEBUG')
@@ -43,6 +51,10 @@ if get_sessionmaker(f"sqlite:///{args.database}", args.backoff, args.retries):
         socketserver.TCPServer.allow_reuse_address = True  # on the class! (not the instance)
         with socketserver.TCPServer(("", args.port), MyHTTPRequestHandler) as httpd:
             logger.info(f"serving at port {args.port}")
-            httpd.serve_forever()
+            httpd.timeout=0.5
+            while not stop:
+                httpd.handle_request()
+            #httpd.serve_forever()
+        logger.info('server stopped')
 else:
     logger.critical("Could not initialize database")
