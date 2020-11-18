@@ -22,7 +22,16 @@ export SERVERLOG=./logfile
 
 echo pytest unit tests
 
-PYTHONPATH=src pytest
+PYTHONPATH=src coverage run --omit '/usr/*,*/site-packages/*' -m pytest > unittest_report.txt
+if [ $? -eq 0 ]
+then
+  echo ": unit tests pass"
+else
+  echo ": unit tests fail"
+  exit 1
+fi
+coverage html
+coverage report > coverage_report.txt
 
 echo functional tests
 

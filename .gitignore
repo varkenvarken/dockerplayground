@@ -7,3 +7,8 @@
 /authserver/user.db
 /authserver/myresponse
 /authserver/logfile
+/authserver/htmlcov/.*
+/authserver/.coverage
+/authserver/coverage_report.txt
+/authserver/unittest_report.txt
+/authserver/htmlcov/*
