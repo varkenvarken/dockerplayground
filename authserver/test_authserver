@@ -167,6 +167,44 @@ else
   exit 1
 fi
 
+echo -n "check: stats?users"
+$http -phb -f POST localhost:8005/stats?users Cookie:$sessioncookie > $RESPONSE
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+echo -n "check: stats?passwordresets"
+$http -phb -f POST localhost:8005/stats?passwordresets Cookie:$sessioncookie > $RESPONSE
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+echo -n "check: stats?pendingusers"
+$http -phb -f POST localhost:8005/stats?pendingusers Cookie:$sessioncookie > $RESPONSE
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+echo -n "check: stats?sessions"
+$http -phb -f POST localhost:8005/stats?sessions Cookie:$sessioncookie > $RESPONSE
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+
 echo -n "check: logout"
 $http -ph -f POST localhost:8005/logout Cookie:$sessioncookie | head -1 | grep ' 200 ' > /dev/null
 if [ $? -eq 0 ]
