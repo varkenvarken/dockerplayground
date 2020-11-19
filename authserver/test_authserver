@@ -20,7 +20,7 @@ export SESSION=./mysession
 export RESPONSE=./myresponse
 export SERVERLOG=./logfile
 
-export COVERAGE_PROCESS_START=/home/michel/dockerplayground/authserver/.coveragerc
+export COVERAGE_PROCESS_START="$PWD"/.coveragerc
 rm -f .coverage .coverage.*
 
 echo pytest unit tests
