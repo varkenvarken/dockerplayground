@@ -45,6 +45,8 @@ from loguru import logger
 from regex import compile  # we use an alternative regular expression library here to support unicode classes like \p{L}
 from regex.regex import Pattern
 
+logger.info(usercustomize.coverage)
+
 
 def number(variable, default):
     """
@@ -98,35 +100,6 @@ def allowed_sessionid(s):
     if len(s) > 32:  # protect against overly long strings
         return False
     return bool(SESSIONID_pattern.fullmatch(s))
-
-
-def verify_login_params(params):
-
-    if 'login' not in params:
-        return False
-    if params['login'] not in ('Login', 'Register', 'Forgot'):
-        return False
-    pset = set(params.keys())
-    if params['login'] == 'Login':
-        if pset != {'login', 'password', 'email'}:
-            return False
-    elif params['login'] == 'Register':
-        if pset != {'login', 'password', 'password2', 'email', 'name'}:
-            return False
-    elif params['login'] == 'Forgot':
-        if pset != {'login', 'email'}:
-            return False
-    else:
-        return False
-    return True
-
-
-def verify_verifysession_params(params):
-    if len(params) != 1 or 'sessionid' not in params:
-        return False
-    if allowed_sessionid(params['sessionid']):
-        return True
-    return False
 
 
 def verify_stats_params(params):
