@@ -22,17 +22,20 @@ import argparse
 import socketserver
 from os import environ
 from sys import stderr
+import signal
 
 from loguru import logger
 
 from .server import MyHTTPRequestHandler, get_sessionmaker, add_superuser
 
-stop=False
-import signal
+stop = False
+
+
 def handler(signum, frame):
     global stop
     print('Signal handler called with signal', signum)
-    stop=True
+    stop = True
+
 
 signal.signal(signal.SIGTERM, handler)
 
@@ -51,10 +54,10 @@ if get_sessionmaker(f"sqlite:///{args.database}", args.backoff, args.retries):
         socketserver.TCPServer.allow_reuse_address = True  # on the class! (not the instance)
         with socketserver.TCPServer(("", args.port), MyHTTPRequestHandler) as httpd:
             logger.info(f"serving at port {args.port}")
-            httpd.timeout=0.5
+            httpd.timeout = 0.5
             while not stop:
                 httpd.handle_request()
-            #httpd.serve_forever()
+            # httpd.serve_forever()
         logger.info('server stopped')
 else:
     logger.critical("Could not initialize database")
