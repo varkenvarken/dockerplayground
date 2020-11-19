@@ -57,6 +57,7 @@ if get_sessionmaker(f"sqlite:///{args.database}", args.backoff, args.retries):
             httpd.timeout = 0.5
             while not stop:
                 httpd.handle_request()
+            # TODO make server_forever default when coverage not done
             # httpd.serve_forever()
         logger.info('server stopped')
 else:
