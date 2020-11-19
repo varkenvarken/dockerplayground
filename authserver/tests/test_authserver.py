@@ -2,6 +2,7 @@ import pytest
 
 from authserver import server
 
+
 @pytest.fixture
 def password():
     return '12345678'
