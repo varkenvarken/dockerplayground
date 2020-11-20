@@ -464,8 +464,8 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
         self.session.commit()
         for s in self.session.query(Session).filter(Session.hardlimit <= datetime.now()):
+            logger.info(f'deleting session {s.id} for {s.user.email}')
             self.session.delete(s)
-            logger.info(f'deleted session {s.id} for {s.user.email}')
         return None
 
     def do_logout(self):
