@@ -37,8 +37,9 @@ from collections import defaultdict
 from time import sleep
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
+from sqlalchemy import event, create_engine, ForeignKey, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.engine import Engine
 
 from loguru import logger
 
@@ -84,7 +85,7 @@ PASSWORD_special    = compile(r"[ !|@#$%^&*()\-_.,<>?/\\{}\[\]]")
 def newpassword(password):
     """
     Return a cryptographic hash of password as a string of hex digits.
-    
+
     The password is salted with 16 random bytes.
     The salt is prepended as 32 hex digits to the returned hash.
     """
@@ -96,7 +97,7 @@ def newpassword(password):
 def checkpassword(password, reference):
     """
     Compare a plaintext password to a hashed reference.
-    
+
     The reference is a string of hex digits, the first 32 being the salt.
     """
     salt = bytes.fromhex(reference[:32])
@@ -166,7 +167,7 @@ def get_params(body):
 def valid_session(cookie, session):
     """
     Verify that the cookie contains a valid session id.
-    
+
     Returns False if no session morsel is present in the cookie,
     the sessionid is not a 32 digit hex string or the sessionid
     is unknown.
@@ -231,7 +232,7 @@ Base = declarative_base()
 def alchemyencoder(obj):
     """
     A json encoder for ORM objects, date and Decimal objects.
-    
+
     like all default encoders for json it returns strings which are then encoded to json.
     """
     if isinstance(obj, Base):
@@ -265,7 +266,7 @@ class Session(Base):
     created     = Column(DateTime(), default=datetime.now())
     softlimit   = Column(DateTime(), default=datetime.now())
     hardlimit   = Column(DateTime(), default=datetime.now())
-    userid      = Column(Integer, ForeignKey('user.id'))
+    userid      = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user        = relationship(User)
 
 
@@ -284,7 +285,7 @@ class PasswordReset(Base):
     id          = Column(String(34), primary_key=True)  # holds a guid
     created     = Column(DateTime(), default=datetime.now())
     expires     = Column(DateTime(), default=datetime.now())
-    userid      = Column(Integer, ForeignKey('user.id'))
+    userid      = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user        = relationship(User)
 
 
@@ -716,8 +717,18 @@ def add_superuser():
     session.add(ns)
     logger.info(f"adding admin user {ns.email}")
     session.commit()
+    for s in session.query(Session):
+        logger.info(f"{s.id} {s.created} {s.userid}")
     session.close()
     return True
+
+
+# https://docs.sqlalchemy.org/en/13/dialects/sqlite.html#foreign-key-support
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 def get_sessionmaker(connection, timeout, retries):
