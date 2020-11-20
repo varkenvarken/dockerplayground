@@ -46,7 +46,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--port',     '-p', default=8005,                   type=int, help='application port')
 parser.add_argument('--backoff',  '-b', default=2,                      type=int, help='start seconds to wait on db connection (doubles every try)')
 parser.add_argument('--retries',  '-r', default=3,                      type=int, help='number of times to retry initial database connection')
-parser.add_argument('--database', '-d', default='/usr/src/app/user.db', type=str, help='number of times to retry initial database connection')
+parser.add_argument('--database', '-d', default='/usr/src/app/user.db', type=str, help='path to sqlite database file')
 args = parser.parse_args()
 
 if get_sessionmaker(f"sqlite:///{args.database}", args.backoff, args.retries):
