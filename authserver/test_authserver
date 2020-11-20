@@ -47,7 +47,7 @@ set -e
 clean_up () {
     ARG=$?
     echo
-    echo "removing server"
+    echo "atexit: removing server if still present"
     kill %1
     exit $ARG
 }
@@ -233,8 +233,9 @@ else
   exit 1
 fi
 
+# registration of a new user
 echo -n "check: POST localhost:8005/login email=testuser@example.org password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD name=Testuser login=Register"
-$http -ph -f POST localhost:8005/login email=testuser@example.org password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD name=Testuser login=Register | grep ' 200 ' |  > /dev/null
+$http -ph -f POST localhost:8005/login email=testuser@example.org password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD name=Testuser login=Register | grep '303 Registration pending confirmation, email sent to email address' > /dev/null
 if [ $? -eq 0 ]
 then
   echo ": pass"
@@ -264,9 +265,41 @@ else
   exit 1
 fi
 
-echo tests done
+# forgot password
+echo -n "check: POST localhost:8005/login email=testuser@example.org login=Forgot"
+$http -ph -f POST localhost:8005/login email=testuser@example.org login=Forgot | grep '303 Email sent' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
 
-echo "removing server"
+confirmid=`grep -oE 'reset confirmation id: [0-9a-f]{32}' $SERVERLOG|grep -oE '[0-9a-f]{32}'`
+echo -n "check: GET localhost:8005/resetpassword?$confirmid"
+$http -ph GET localhost:8005/resetpassword?$confirmid  > $RESPONSE
+grep '303 Reset request ok' $RESPONSE > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/newpassword email=testuser@example.org resetid=$confirmid password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD choose=Choose"
+$http -ph -f POST localhost:8005/newpassword email=testuser@example.org resetid=$confirmid password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD choose=Choose > $RESPONSE
+grep '303 Password reset successful' $RESPONSE > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo tests done, removing server
 kill %1
 sleep 1
 
