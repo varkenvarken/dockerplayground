@@ -114,11 +114,6 @@ def allowed_sessionid(s):
     return bool(SESSIONID_pattern.fullmatch(s))
 
 
-def verify_stats_params(params):
-    logger.error('verify_stats_params does not have a proper implementation yet')
-    return True
-
-
 def allowed_password(s):
     """
     Check if a password meets the complexity criteria:
@@ -164,28 +159,13 @@ def get_params(body):
     return params
 
 
-def valid_session(cookie, session):
-    """
-    Verify that the cookie contains a valid session id.
-
-    Returns False if no session morsel is present in the cookie,
-    the sessionid is not a 32 digit hex string or the sessionid
-    is unknown.
-    """
-    if 'session' not in cookie:
-        return False
-    if not allowed_sessionid(cookie['session'].value):
-        return False
-    return bool(session.query(Session).filter(Session.id == cookie['session'].value).one())
-
-
 class ParameterSet:
 
     """
     Defines allowable input parameters for a POST request.
     """
 
-    def __init__(self, specs):
+    def __init__(self, specs={}):
         """
         specs is a dict name --> (ex, maxlength)
 
@@ -294,10 +274,13 @@ class PasswordReset(Base):
 # and nothing is returned. That causes a 502 Bad gateway in Traefik
 class MyHTTPRequestHandler(BaseHTTPRequestHandler):
 
-    verifysession_params = ParameterSet({'sessionid': (r"[01-9a-f]{32}", 34)})
-    logout_params = ParameterSet({})
-    login_login_params = ParameterSet({'login': ('Login', 5), 'password': (allowed_password, 64), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
+    verifysession_params  = ParameterSet({'sessionid': (r"[01-9a-f]{32}", 34)})
+    logout_params         = ParameterSet({})
+    login_login_params    = ParameterSet({'login': ('Login', 5), 'password': (allowed_password, 64), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
     login_register_params = ParameterSet({'login': ('Register', 8), 'name': (r"[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} ]+", 100), 'password': (allowed_password, 64), 'password2': (allowed_password, 64), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
+    login_forgot_params   = ParameterSet({'login': ('Forgot', 6), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
+    newpassword_params    = ParameterSet({'choose': ('Choose', 6), 'password': (allowed_password, 64), 'password2': (allowed_password, 64), 'resetid': (r"[01-9a-f]{32}", 34)})
+    stats_params          = ParameterSet()
 
     def log_message(self, format, *args):
         """
@@ -420,36 +403,43 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 else:
                     logger.error('mail not sent')
             self.redirect("Registration pending confirmation, email sent to email address", f"{LOGINSCREEN}?pending")
-            self.send_session_cookie(None)
 
     def do_login_forgot(self):
         logger.info('/login login=Forgot')
-        email = self.params['email']
-        user = self.session.query(User).filter(User.email == email).first()
-        params = self.params
-
-        # we always send the same response, no matter if the user exists or not
-        self.redirect_start("Email sent", f"{LOGINSCREEN}?checkemail")
-        self.send_session_cookie(None)
-
-        user = self.session.query(User).filter(User.email == params['email']).first()
-        if not user:  # no user found but we are not providing this information
-            logger.info(f"no user found {params['email']}")
+        if not MyHTTPRequestHandler.login_forgot_params.check(self.params):
+            logger.info('unauthorized, login forgot params do not have proper format')
         else:
-            logger.info(f"password reset request received for existing user {params['email']}")
-            pr = PasswordReset(id=guid().hex, userid=user.id)
-            self.session.add(pr)
-            self.session.commit()
-            u, p, s = fetch_smtp_params()
-            mail(f"""
-            Hi {user.name},
+            email = self.params['email']
+            user = self.session.query(User).filter(User.email == email).first()
+            params = self.params
 
-            We received a request to reset your password. If it wasn't you, please ignore this message.
-            Otherwise, follow this link and select a new password.
+            # we always send the same response, no matter if the user exists or not
+            self.redirect("Email sent", f"{LOGINSCREEN}?checkemail")
 
-            RESETPASSWORD?{pr.id}
+            user = self.session.query(User).filter(User.email == params['email']).first()
+            if not user:  # no user found but we are not providing this information
+                logger.info(f"no user found {params['email']}")
+            else:
+                logger.info(f"password reset request received for existing user {params['email']}")
+                pr = PasswordReset(id=guid().hex, userid=user.id)
+                self.session.add(pr)
+                self.session.commit()
+                logger.info(f"sending confirmation mail to {user.email} ({user.name})")
+                logger.info(f"reset confirmation id: {pr.id}")
+                u, p, s = fetch_smtp_params()
+                if mail(f"""
+                Hi {user.name},
 
-            """, "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
+                We received a request to reset your password. If it wasn't you, please ignore this message.
+                Otherwise, follow this link and select a new password.
+
+                RESETPASSWORD?{pr.id}
+
+                """, "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
+                    logger.success('mail successfully sent')
+                else:
+                    logger.error('mail not sent')
+            self.redirect("Password reset pending confirmation, email sent to email address", f"{LOGINSCREEN}?pending")
         return None
 
     def do_login(self):
@@ -513,24 +503,23 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         return None
 
     def do_newpassword(self):
-        params = self.params
-        if not allowed_password(params['password']):
-            logger.info(f"invalid password format [{params['password'][:70]}]")
-        elif not allowed_password(params['password2']):
-            logger.info(f"invalid password format [{params['password2'][:70]}]")
-        elif params['password'] != params['password2']:
-            logger.info("passwords are not identical")
-            # TODO check for expiration and remove expired sessions (and successful session )
-        elif resetuser := self.session.query(PasswordReset).filter(PasswordReset.id == params['resetid']).first():  # resetid is a hidden field
-            logger.success(f'password reset for user {resetuser.user.email}')
-            user = resetuser.user
-            user.password = newpassword(params['password'])
-            self.redirect_start("Password reset successful", f"{LOGINSCREEN}?resetsuccessful")
-            self.send_session_cookie(None)
+        if not MyHTTPRequestHandler.newpassword_params.check(self.params):
+            logger.info('unauthorized, newpassword params do not have proper format')
         else:
-            logger.info('resetid not found or expired')
-            self.redirect_start("Password reset failed", f"{LOGINSCREEN}?resetfailed")
-            self.send_session_cookie(None)
+            params = self.params
+            if params['password'] != params['password2']:
+                logger.info("passwords are not identical")
+            else:
+                logger.debug(params)
+                for resetuser in self.session.query(PasswordReset).filter(PasswordReset.id == params['resetid']):
+                    logger.success(f'password reset for user {resetuser.user.email}')
+                    user = resetuser.user
+                    user.password = newpassword(params['password'])
+                    self.redirect("Password reset successful", f"{LOGINSCREEN}?resetsuccessful")
+                    self.session.delete(resetuser)
+                    return None
+                logger.info('resetid not found or expired')
+        self.redirect("Password reset failed", f"{LOGINSCREEN}?resetfailed")
         return None
 
     def do_unknown(self):
@@ -539,32 +528,29 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         return None
 
     def do_stats(self):
-        params = self.params
-        url = urlparse(self.path)
-        # TODO we may want to whitelist this for only localhost in traefik
-        # verify that incoming parameters are what we expect
-        if not verify_stats_params(params):
-            self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-            logger.info('unauthorized, sessionid does not have proper format')
-        if url.query not in ('users', 'sessions', 'pendingusers', 'passwordresets'):
-            self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
-            logger.info('unauthorized, url.query does not have proper format')
-        # if the session is known, compose the response with user data
-        # TODO add a hard timelimit to the session
-        if 'session' in self.cookie:
-            logger.info(self.cookie['session'])
-            for s in self.session.query(Session).filter(Session.id == self.cookie['session'].value):
-                if s.user.superuser:
-                    logger.success(f'/stats authorized for user {s.user.email}')
-                    self.send_response(HTTPStatus.OK, "valid session")
-                    ob = {'users': User, 'sessions': Session, 'pendingusers': PendingUser, 'passwordresets': PasswordReset}[url.query]
-                    users = json.dumps([u for u in self.session.query(ob)], default=alchemyencoder)
-                    return bytes(f'{{"data": {users}}}', 'utf-8')
-                logger.info(f'unauthorized, {s.user.email} (s.user.name) is not a superuser ({s.user.superuser})')
-                break
-            logger.info(f"unauthorized, no valid session found: {self.cookie['session'].value}")
+        if not MyHTTPRequestHandler.stats_params.check(self.params):
+            logger.info('unauthorized, stats params do not have proper format')
         else:
-            logger.info('unauthorized, no session cookie provided')
+            url = urlparse(self.path)
+            # TODO we may want to whitelist this for only localhost in traefik
+            if url.query not in ('users', 'sessions', 'pendingusers', 'passwordresets'):
+                logger.info('unauthorized, url.query does not have proper format')
+            # if the session is known, compose the response with user data
+            # TODO add a hard timelimit to the session
+            elif 'session' in self.cookie:
+                logger.info(self.cookie['session'])
+                for s in self.session.query(Session).filter(Session.id == self.cookie['session'].value):
+                    if s.user.superuser:
+                        logger.success(f'/stats authorized for user {s.user.email}')
+                        self.send_response(HTTPStatus.OK, "valid session")
+                        ob = {'users': User, 'sessions': Session, 'pendingusers': PendingUser, 'passwordresets': PasswordReset}[url.query]
+                        users = json.dumps([u for u in self.session.query(ob)], default=alchemyencoder)
+                        return bytes(f'{{"data": {users}}}', 'utf-8')
+                    logger.info(f'unauthorized, {s.user.email} (s.user.name) is not a superuser ({s.user.superuser})')
+                    break
+                logger.info(f"unauthorized, no valid session found: {self.cookie['session'].value}")
+            else:
+                logger.info('unauthorized, no session cookie provided')
         self.send_response(HTTPStatus.UNAUTHORIZED, "no valid session")
         return None
 
