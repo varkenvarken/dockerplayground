@@ -7,12 +7,17 @@ export DOMAIN=127.0.0.1
 export APPLICATION=/dummy
 export LOGINSCREEN=/dummy/loginscreen
 # next two are relative (point to the same server)
-export CONFIRMREGISTRATION=confirmregistrationu
+export CONFIRMREGISTRATION=confirmregistration
 export RESETPASSWORD=resetpassword
 
 export DATABASE=user.db
 export ADMIN_USER=test@example.org
 export ADMIN_PASSWORD=s3Cret!!
+
+# these are designed to fail: we don't send mail actually
+export SMTP_USER=user
+export SMTP_PASSWORD=secret
+export SMTP_SERVER=192.168.66.66
 
 export DEBUGLEVEL=INFO
 
@@ -45,7 +50,7 @@ clean_up () {
     echo "removing server"
     kill %1
     exit $ARG
-} 
+}
 trap clean_up EXIT
 
 # start the server in the background and make sure it has a bit of time to startup
@@ -169,6 +174,7 @@ fi
 
 echo -n "check: stats?users"
 $http -phb -f POST localhost:8005/stats?users Cookie:$sessioncookie > $RESPONSE
+grep ' 200 ' $RESPONSE > /dev/null
 if [ $? -eq 0 ]
 then
   echo ": pass"
@@ -178,6 +184,7 @@ else
 fi
 echo -n "check: stats?passwordresets"
 $http -phb -f POST localhost:8005/stats?passwordresets Cookie:$sessioncookie > $RESPONSE
+grep ' 200 ' $RESPONSE > /dev/null
 if [ $? -eq 0 ]
 then
   echo ": pass"
@@ -187,6 +194,7 @@ else
 fi
 echo -n "check: stats?pendingusers"
 $http -phb -f POST localhost:8005/stats?pendingusers Cookie:$sessioncookie > $RESPONSE
+grep ' 200 ' $RESPONSE > /dev/null
 if [ $? -eq 0 ]
 then
   echo ": pass"
@@ -196,6 +204,7 @@ else
 fi
 echo -n "check: stats?sessions"
 $http -phb -f POST localhost:8005/stats?sessions Cookie:$sessioncookie > $RESPONSE
+grep ' 200 ' $RESPONSE > /dev/null
 if [ $? -eq 0 ]
 then
   echo ": pass"
@@ -216,6 +225,37 @@ else
 fi
 echo -n "check: verifysession expired 401 "
 $http -ph -f POST localhost:8005/verifysession sessionid=$sessionid  | head -1 | grep ' 401 ' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: POST localhost:8005/login email=testuser@example.org password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD name=Testuser login=Register"
+$http -ph -f POST localhost:8005/login email=testuser@example.org password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD name=Testuser login=Register | grep ' 200 ' |  > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+confirmid=`grep -oE 'confirmation id: [0-9a-f]{32}' $SERVERLOG|grep -oE '[0-9a-f]{32}'`
+echo -n "check: GET localhost:8005/confirmregistration?$confirmid"
+$http -ph GET localhost:8005/confirmregistration?$confirmid  | grep '303 Confirmation ok' > /dev/null
+if [ $? -eq 0 ]
+then
+  echo ": pass"
+else
+  echo ": fail"
+  exit 1
+fi
+
+echo -n "check: GET localhost:8005/confirmregistration?deadbeefdeadbeefdeadbeefdeadbeef"
+$http -ph GET localhost:8005/confirmregistration?deadbeefdeadbeefdeadbeefdeadbeef | grep '303 Confirmation link not ok' > /dev/null
 if [ $? -eq 0 ]
 then
   echo ": pass"
