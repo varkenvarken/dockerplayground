@@ -20,13 +20,27 @@
 #  MA 02110-1301, USA.
 
 import os
+from smtplib import SMTP_SSL
+from socket import timeout
+
+from loguru import logger
 
 
 def mail(message, subject, fromaddr, toaddr, smtp, username, password):
-    from smtplib import SMTP_SSL
-    with SMTP_SSL(smtp) as smtp:
-        smtp.login(username, password)
-        smtp.sendmail(fromaddr, toaddr, bytes(f"From: {fromaddr}\r\nTo: {toaddr}\r\nSubject: {subject}\r\n\r\n{message}", 'UTF-8'))
+    logger.info(f"{subject} from:{fromaddr} to:{toaddr} {username}@{smtp}")
+    try:
+        with SMTP_SSL(smtp, 0, None, None, None, 3) as smtp:
+            logger.info('smtp connect ok')
+            smtp.login(username, password)
+            logger.info('smtp login ok')
+            smtp.sendmail(fromaddr, toaddr, bytes(f"From: {fromaddr}\r\nTo: {toaddr}\r\nSubject: {subject}\r\n\r\n{message}", 'UTF-8'))
+            logger.info('smtp send ok')
+        return True
+    except timeout:
+        logger.error(f"could not connect to smtp server {smtp}")
+    except Exception:
+        logger.exception(f"problem sending mail to {username}/{password}@{smtp}")
+    return False
 
 
 def fetch_smtp_params():
@@ -45,6 +59,7 @@ def fetch_smtp_params():
                 with open(os.environ[varf]) as f:
                     env[var] = f.read().strip()
             else:
+                logger.error(f'{var} and {varf} not defined in environment')
                 raise KeyError(f'{var} and {varf} not defined in environment')
 
     return env['SMTP_USER'], env['SMTP_PASSWORD'], env['SMTP_SERVER']

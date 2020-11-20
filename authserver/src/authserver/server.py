@@ -404,18 +404,22 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.session.commit()
                 # TODO we should make sure that a limited number of emails are sent to the same address
                 user = self.session.query(PendingUser).filter(PendingUser.email == params['email']).first()
-                logger.success(f"sending confirmation mail to {user.email} (user.name)")
+                logger.info(f"sending confirmation mail to {user.email} ({user.name})")
+                logger.info(f"confirmation id: {pu.id}")
                 u, p, s = fetch_smtp_params()
-                mail(f"""
+                logger.info(f"mailer {u}@{s} (password not shown ...)")
+                if mail(f"""
                 Hi {user.name},
 
                 Please confirm your registration on Book collection.
 
                 {CONFIRMREGISTRATION}?{pu.id}
 
-                """,
-                     "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p)
-            self.redirect_start("Registration pending confirmation, email sent to email address", f"{LOGINSCREEN}?pending")
+                """, "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
+                    logger.success('mail successfully sent')
+                else:
+                    logger.error('mail not sent')
+            self.redirect("Registration pending confirmation, email sent to email address", f"{LOGINSCREEN}?pending")
             self.send_session_cookie(None)
 
     def do_login_forgot(self):
@@ -660,7 +664,7 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
                         logger.info(f'confirmregistration link expired or not present {url.query[:40]}')
                         self.redirect("Confirmation link not ok", f"{LOGINSCREEN}?expired")
                 # TODO clean pending users with same email? (note: only expired)
-            if url.path == '/resetpassword':
+            elif url.path == '/resetpassword':
                 if not allowed_sessionid(url.query):
                     logger.info(f'resetpassword link not ok {url.query[:40]}')
                     self.redirect("Confirmation link not ok", f"{LOGINSCREEN}?expired")
