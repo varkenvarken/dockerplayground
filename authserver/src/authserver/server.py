@@ -82,12 +82,23 @@ PASSWORD_special    = compile(r"[ !|@#$%^&*()\-_.,<>?/\\{}\[\]]")
 
 
 def newpassword(password):
+    """
+    Return a cryptographic hash of password as a string of hex digits.
+    
+    The password is salted with 16 random bytes.
+    The salt is prepended as 32 hex digits to the returned hash.
+    """
     salt = urandom(16)
     dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
     return salt.hex() + dk.hex()
 
 
 def checkpassword(password, reference):
+    """
+    Compare a plaintext password to a hashed reference.
+    
+    The reference is a string of hex digits, the first 32 being the salt.
+    """
     salt = bytes.fromhex(reference[:32])
     dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)
     return compare_digest(salt.hex() + dk.hex(), reference)
@@ -95,7 +106,7 @@ def checkpassword(password, reference):
 
 def allowed_sessionid(s):
     """
-    Check is s is a sessionid in a proper format (32 lowercase hex digits).
+    Check if s is a sessionid in a proper format (32 lowercase hex digits).
     """
     if len(s) > 32:  # protect against overly long strings
         return False
@@ -133,7 +144,7 @@ def get_params(body):
     """
     Get the form encoded parameters from the body of a POST request.
 
-    The conten type should be application/x-www-form-urlencoded; charset=UTF-8.
+    The content type should be application/x-www-form-urlencoded; charset=UTF-8.
 
     returns a dict name:str -> value:str
     """
@@ -153,6 +164,13 @@ def get_params(body):
 
 
 def valid_session(cookie, session):
+    """
+    Verify that the cookie contains a valid session id.
+    
+    Returns False if no session morsel is present in the cookie,
+    the sessionid is not a 32 digit hex string or the sessionid
+    is unknown.
+    """
     if 'session' not in cookie:
         return False
     if not allowed_sessionid(cookie['session'].value):
@@ -211,6 +229,11 @@ Base = declarative_base()
 
 
 def alchemyencoder(obj):
+    """
+    A json encoder for ORM objects, date and Decimal objects.
+    
+    like all default encoders for json it returns strings which are then encoded to json.
+    """
     if isinstance(obj, Base):
         d = {c.name: getattr(obj, c.name) for c in obj.__table__.columns if c.name != 'password'}  # passwords *never* leave the system, not even encrypted
         if hasattr(obj, 'user'):
