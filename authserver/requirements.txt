@@ -1,0 +1,5 @@
+PyMySQL
+PyMySQL[rsa]
+SQLAlchemy
+loguru
+regex
