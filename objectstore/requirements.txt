@@ -1,0 +1,10 @@
+pip
+setuptools
+wheel
+PyMySQL
+PyMySQL[rsa]
+falcon
+SQLAlchemy
+falcon-autocrud
+falcon-prometheus
+requests
