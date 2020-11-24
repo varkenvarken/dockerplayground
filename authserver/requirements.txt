@@ -1,0 +1,8 @@
+pip
+setuptools
+wheel
+PyMySQL
+PyMySQL[rsa]
+SQLAlchemy
+loguru
+regex
