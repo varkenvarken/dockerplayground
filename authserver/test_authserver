@@ -19,7 +19,7 @@ export SMTP_USER=user
 export SMTP_PASSWORD=secret
 export SMTP_SERVER=192.168.66.66
 
-export DEBUGLEVEL=INFO
+export DEBUGLEVEL=DEBUG
 
 export SESSION=./mysession
 export RESPONSE=./myresponse
@@ -28,15 +28,12 @@ export SERVERLOG=./logfile
 export COVERAGE_PROCESS_START="$PWD"/.coveragerc
 rm -f .coverage .coverage.*
 
-echo pytest unit tests
-
 PYTHONPATH=src pytest > unittest_report.txt
 if [ $? -eq 0 ]
 then
-  echo ": unit tests pass"
+  echo "unit tests                    : pass"
 else
-  echo ": unit tests fail"
-  exit 1
+  echo "unit tests                    : fail"
 fi
 
 echo functional tests
@@ -54,6 +51,7 @@ clean_up () {
 trap clean_up EXIT
 
 # start the server in the background and make sure it has a bit of time to startup
+echo starting the server
 rm -f $DATABASE $SESSION $RESPONSE
 
 PYTHONPATH=src python -m authserver -d $DATABASE > $SERVERLOG 2>&1 &
@@ -61,243 +59,57 @@ sleep 2
 
 unset COVERAGE_PROCESS_START
 
-echo -n "check: GET localhost:8005  --> 404"
-$http -ph GET localhost:8005 | head -1 | grep ' 404 ' > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
+# perform the functional tests
+python functional_tests_authserver.py
 
-echo -n "check: GET localhost:8005/login  --> 404"
-$http -ph GET localhost:8005/login | head -1 | grep ' 404 ' > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-echo -n "check: POST localhost:8005/login  --> 303"
-$http -ph POST localhost:8005/login | head -1 | grep ' 303 ' > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-echo -n "check: POST localhost:8005/login  --> Location: $LOGINSCREEN?failed"
-$http -ph POST localhost:8005/login | grep "Location: $LOGINSCREEN?failed" > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-echo -n "check: POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login  --> 200"
-$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-echo -n "check: POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login  --> Location: $APPLICATION"
-$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login | grep "Location: $APPLICATION" > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-echo -n "check: POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login  --> Correct cookie"
-$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login | grep -P "session=[0-9a-f]{32};\s+Domain=$DOMAIN;" > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-echo -n "check: POST localhost:8005/login email=unknown@example.org password=$ADMIN_PASSWORD login=Login  --> cookie None"
-$http -ph -f POST localhost:8005/login email=unknown@example.org password=$ADMIN_PASSWORD login=Login | grep -P "session=None;\s+Domain=$DOMAIN;" > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-# unfortunately httpie doesn't store cookies as it should so sessions are useless and we have to store the session cookie ourselves
-echo -n "check: login"
-$http -ph -f POST localhost:8005/login email=$ADMIN_USER password=$ADMIN_PASSWORD login=Login | grep -P "session=[0-9a-f]{32}" > $SESSION
-sessioncookie=`grep -oE "session=[0-9a-f]{32}" $SESSION`
-sessionid=`echo  $sessioncookie | grep -oE "[0-9a-f]{32}"`
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-echo -n "check: verifysession 200 ok"
-$http -phb -f POST localhost:8005/verifysession sessionid=$sessionid > $RESPONSE
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-echo -n "check: verifysession body contains email=$ADMIN_USER"
-grep "email=$ADMIN_USER" $RESPONSE > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-echo -n "check: stats?users"
-$http -phb -f POST localhost:8005/stats?users Cookie:$sessioncookie > $RESPONSE
-grep ' 200 ' $RESPONSE > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-echo -n "check: stats?passwordresets"
-$http -phb -f POST localhost:8005/stats?passwordresets Cookie:$sessioncookie > $RESPONSE
-grep ' 200 ' $RESPONSE > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-echo -n "check: stats?pendingusers"
-$http -phb -f POST localhost:8005/stats?pendingusers Cookie:$sessioncookie > $RESPONSE
-grep ' 200 ' $RESPONSE > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-echo -n "check: stats?sessions"
-$http -phb -f POST localhost:8005/stats?sessions Cookie:$sessioncookie > $RESPONSE
-grep ' 200 ' $RESPONSE > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-
-echo -n "check: logout"
-$http -ph -f POST localhost:8005/logout Cookie:$sessioncookie | head -1 | grep ' 200 ' > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-echo -n "check: verifysession expired 401 "
-$http -ph -f POST localhost:8005/verifysession sessionid=$sessionid  | head -1 | grep ' 401 ' > /dev/null
-if [ $? -eq 0 ]
-then
-  echo ": pass"
-else
-  echo ": fail"
-  exit 1
-fi
-
-# registration of a new user
-echo -n "check: POST localhost:8005/login email=testuser@example.org password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD name=Testuser login=Register"
+# perform some test for which we need to retrieve information from the server log
 $http -ph -f POST localhost:8005/login email=testuser@example.org password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD name=Testuser login=Register | grep '303 Registration pending confirmation, email sent to email address' > /dev/null
+confirmid=`grep -oE 'confirmation id: [0-9a-f]{32}' $SERVERLOG|grep -oE '[0-9a-f]{32}'`
 if [ $? -eq 0 ]
 then
-  echo ": pass"
+  echo "send registration             : pass"
 else
-  echo ": fail"
-  exit 1
+  echo "send registration             : fail"
 fi
-
-confirmid=`grep -oE 'confirmation id: [0-9a-f]{32}' $SERVERLOG|grep -oE '[0-9a-f]{32}'`
-echo -n "check: GET localhost:8005/confirmregistration?$confirmid"
 $http -ph GET localhost:8005/confirmregistration?$confirmid  | grep '303 Confirmation ok' > /dev/null
 if [ $? -eq 0 ]
 then
-  echo ": pass"
+  echo "registration confirmation     : pass"
 else
-  echo ": fail"
-  exit 1
+  echo "registration confirmation     : fail"
 fi
-
-echo -n "check: GET localhost:8005/confirmregistration?deadbeefdeadbeefdeadbeefdeadbeef"
 $http -ph GET localhost:8005/confirmregistration?deadbeefdeadbeefdeadbeefdeadbeef | grep '303 Confirmation link not ok' > /dev/null
 if [ $? -eq 0 ]
 then
-  echo ": pass"
+  echo "illegal confirmation          : pass"
 else
-  echo ": fail"
-  exit 1
+  echo "illegal confirmation          : fail"
 fi
-
-# forgot password
-echo -n "check: POST localhost:8005/login email=testuser@example.org login=Forgot"
 $http -ph -f POST localhost:8005/login email=testuser@example.org login=Forgot | grep '303 Email sent' > /dev/null
+confirmid=`grep -oE 'reset confirmation id: [0-9a-f]{32}' $SERVERLOG|grep -oE '[0-9a-f]{32}'`
 if [ $? -eq 0 ]
 then
-  echo ": pass"
+  echo "reset password sent           : pass"
 else
-  echo ": fail"
-  exit 1
+  echo "reset password sent           : fail"
 fi
-
-confirmid=`grep -oE 'reset confirmation id: [0-9a-f]{32}' $SERVERLOG|grep -oE '[0-9a-f]{32}'`
-echo -n "check: GET localhost:8005/resetpassword?$confirmid"
 $http -ph GET localhost:8005/resetpassword?$confirmid  > $RESPONSE
 grep '303 Reset request ok' $RESPONSE > /dev/null
 if [ $? -eq 0 ]
 then
-  echo ": pass"
+  echo "reset password confirmation   : pass"
 else
-  echo ": fail"
-  exit 1
+  echo "reset password confirmation   : fail"
 fi
-
-echo -n "check: POST localhost:8005/newpassword email=testuser@example.org resetid=$confirmid password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD choose=Choose"
 $http -ph -f POST localhost:8005/newpassword email=testuser@example.org resetid=$confirmid password=$ADMIN_PASSWORD password2=$ADMIN_PASSWORD choose=Choose > $RESPONSE
 grep '303 Password reset successful' $RESPONSE > /dev/null
 if [ $? -eq 0 ]
 then
-  echo ": pass"
+  echo "reset password submit         : pass"
 else
-  echo ": fail"
-  exit 1
+  echo "reset password submit         : fail"
 fi
+
 
 echo tests done, removing server
 kill %1

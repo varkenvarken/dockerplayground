@@ -589,12 +589,14 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
             self.session = DBSession()
             self.cookie = self.get_cookies()
 
-            content_length = int(self.headers['Content-Length'])
-            body = self.rfile.read(content_length)
-            if content_length > 1000:
-                logger.info(f'bad request: body too large {content_length}')
-                self.send_error(HTTPStatus.BAD_REQUEST, "Bad request")
-                return None
+            content_length = int(self.headers['Content-Length']) if 'Content-Length' in self.headers else 0
+            body = bytes()
+            if content_length:
+                body = self.rfile.read(content_length)
+                if content_length > 1000:
+                    logger.info(f'bad request: body too large {content_length}')
+                    self.send_error(HTTPStatus.BAD_REQUEST, "Bad request")
+                    return None
 
             self.params = get_params(body)
 
