@@ -6,3 +6,4 @@ PyMySQL[rsa]
 SQLAlchemy
 loguru
 regex
+requests
