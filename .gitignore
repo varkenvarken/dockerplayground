@@ -12,3 +12,4 @@
 /authserver/coverage_report.txt
 /authserver/unittest_report.txt
 /authserver/htmlcov/*
+/ATTIC/*
