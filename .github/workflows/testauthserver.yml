@@ -19,7 +19,7 @@ jobs:
       run: |
         sudo apt install httpie
         python -m pip install --upgrade pip setuptools wheel
-        pip install PyMySQL PyMySQL[rsa] SQLAlchemy loguru regex pytest coverage requests
+        pip install PyMySQL PyMySQL[rsa] SQLAlchemy loguru regex gunicorn pytest coverage requests
     - name: Run tests
       run: |
         make testauthserver
