@@ -28,6 +28,7 @@ from loguru import logger
 
 def mail(message, subject, fromaddr, toaddr, smtp, username, password):
     logger.info(f"{subject} from:{fromaddr} to:{toaddr} {username}@{smtp}")
+    logger.debug(message)
     try:
         with SMTP_SSL(smtp, 0, None, None, None, 3) as smtp:
             logger.info('smtp connect ok')

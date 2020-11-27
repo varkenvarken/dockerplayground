@@ -131,7 +131,7 @@ services:
     #  - 8005:8005
     networks:
       - appnetwork
-    environment: # if environment variables are set they override the files
+    environment: # if environment variables are set they override the files; set DEBUGLEVEL to INFO for production
       - SMTP_SERVER
       - SMTP_USER
       - SMTP_PASSWORD

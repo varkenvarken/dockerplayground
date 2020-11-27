@@ -9,5 +9,9 @@ ENTRYPOINT ["gunicorn", "-b", "0.0.0.0:8005", "server:app"]
 
 WORKDIR /usr/src/app
 
-COPY authserver/src .
+COPY authserver/src src
 
+# so the default reference filelocations will work
+COPY authserver/mailtemplates mailtemplates
+
+ENV PYTHONPATH=src

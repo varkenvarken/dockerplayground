@@ -61,6 +61,20 @@ def getvar(variable, default='<unknown>'):
     return default
 
 
+def getfile(variable, defaultfilename, default='Hi {name}, click {link}, Regards {website}'):
+    filename = defaultfilename
+    text = default
+    if variable in os.environ:
+        filename = os.environ[variable]
+    try:
+        with open(filename) as f:
+            text = "".join(f.readlines())
+    except FileNotFoundError:
+        logger.error(f"could not open {filename}")
+        text = default
+    return text
+
+
 # domain to be used in session cookie
 DOMAIN              = getvar('DOMAIN')               # e.g. yourdomain.org
 # redirect locations for successful logon
@@ -69,6 +83,8 @@ LOGINSCREEN         = getvar('LOGINSCREEN')          # e.g. /books/login.html
 # these get used in confirmation emails:
 CONFIRMREGISTRATION = getvar('CONFIRMREGISTRATION')  # e.g. https://server.yourdomain.org/auth/confirmregistration
 RESETPASSWORD       = getvar('RESETPASSWORD')        # e.g. https://server.yourdomain.org/auth/resetpassword
+#
+WEBSITE             = getvar('WEBSITE')              # e.g. Book Collection
 
 # session limits in minutes
 SOFTTIMEOUT = number('SOFTTIMEOUT', 30)
@@ -83,6 +99,9 @@ PASSWORD_lower      = compile(r"[a-z]")
 PASSWORD_upper      = compile(r"[A-Z]")
 PASSWORD_digit      = compile(r"[01-9]")
 PASSWORD_special    = compile(r"[ !|@#$%^&*()\-_.,<>?/\\{}\[\]]")
+
+EMAILTEMPLATE_FORGOTPASSWORD = getfile('EMAILTEMPLATE_FORGOTPASSWORD', 'mailtemplates/passwordreset.mail')
+EMAILTEMPLATE_REGISTER = getfile('EMAILTEMPLATE_REGISTER', 'mailtemplates/registration.mail')
 
 
 def newpassword(password):
@@ -308,7 +327,6 @@ class LoginResource:
         resp.location = f'{LOGINSCREEN}?failed'
 
 
-# TODO make mail work based on templates
 class RegisterResource:
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
@@ -348,14 +366,7 @@ class RegisterResource:
                 logger.info(f"confirmation id: {pu.id}")
                 u, p, s = fetch_smtp_params()
                 logger.info(f"mailer {u}@{s} (password not shown ...)")
-                if mail(f"""
-                Hi {user.name},
-
-                Please confirm your registration on Book Collection.
-
-                {CONFIRMREGISTRATION}?confirmationid={pu.id}
-
-                """, "Confirm your Book Collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
+                if mail(EMAILTEMPLATE_REGISTER.format(name=user.name, website=WEBSITE, link=f"{CONFIRMREGISTRATION}?confirmationid={pu.id}"), "Confirm your registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
                     logger.success('mail successfully sent')
                 else:
                     logger.error('mail not sent')
@@ -392,15 +403,7 @@ class ForgotPasswordResource:
                 logger.info(f"sending confirmation mail to {user.email} ({user.name})")
                 logger.info(f"reset confirmation id: {pr.id}")
                 u, p, s = fetch_smtp_params()
-                if mail(f"""
-                Hi {user.name},
-
-                We received a request to reset your password. If it wasn't you, please ignore this message.
-                Otherwise, follow this link and select a new password.
-
-                {RESETPASSWORD}?confirmationid={pr.id}
-
-                """, "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
+                if mail(EMAILTEMPLATE_FORGOTPASSWORD.format(name=user.name, website=WEBSITE, link=f"{RESETPASSWORD}?confirmationid={pr.id}"), "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
                     logger.success('mail successfully sent')
                 else:
                     logger.error('mail not sent')
@@ -459,10 +462,10 @@ class LogoutResource:
             logger.info(cookie)
             for s in session.query(Session).filter(Session.id == cookie):
                 logger.debug(f"deleting session {s.id} for user {s.user.email}")
+                logger.success(f'logout authorized for user {s.user.email}')
                 session.delete(s)
-            session.commit()
-            logger.success(f'logout authorized for user {s.user.email}')
-            resp.status = falcon.HTTP_303
+                session.commit()
+                resp.status = falcon.HTTP_303
             return
         logger.info('logout unauthorized, session not found or no session cookie present')
 
