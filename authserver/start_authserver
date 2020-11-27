@@ -27,8 +27,6 @@ export SESSION=./mysession
 export RESPONSE=./myresponse
 export SERVERLOG=./logfile
 
-export PORT=8005
-
 export COVERAGE_PROCESS_START="$PWD"/.coveragerc
 rm -f .coverage .coverage.*
 
@@ -42,39 +40,12 @@ fi
 
 echo functional tests
 
-# make sure we always terminate the server
-set -e
-clean_up () {
-    ARG=$?
-    echo
-    echo "atexit: removing server if still present"
-    kill %1
-    exit $ARG
-}
-trap clean_up EXIT
+http="http --ignore-stdin --timeout=5"
 
-# start the server in the background and make sure it has a bit of time to startup
 echo starting the server
-rm -f $DATABASE_FILE $SESSION $RESPONSE
+rm -f $DATABASE $SESSION $RESPONSE
 
-PYTHONPATH=src gunicorn -b 0.0.0.0:$PORT server:app > $SERVERLOG 2>&1 &
+PYTHONPATH=src gunicorn -b 0.0.0.0:8005 server:app > $SERVERLOG 2>&1 &
 sleep 2
 
 unset COVERAGE_PROCESS_START
-
-# perform the functional tests
-python functional_tests_authserver.py
-
-
-echo tests done, removing server
-kill %1
-sleep 1
-
-echo generating coverage reports
-
-coverage combine
-coverage html
-coverage report > coverage_report.txt
-
-echo all done
-
