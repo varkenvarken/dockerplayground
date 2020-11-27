@@ -55,14 +55,20 @@ def number(variable, default):
     return int(default)
 
 
+def getvar(variable, default='<unknown>'):
+    if variable in os.environ:
+        return os.environ[variable]
+    return default
+
+
 # domain to be used in session cookie
-DOMAIN              = os.environ['DOMAIN']               # e.g. yourdomain.org
+DOMAIN              = getvar('DOMAIN')               # e.g. yourdomain.org
 # redirect locations for successful logon
-APPLICATION         = os.environ['APPLICATION']          # e.g. /books
-LOGINSCREEN         = os.environ['LOGINSCREEN']          # e.g. /books/login.html
+APPLICATION         = getvar('APPLICATION')          # e.g. /books
+LOGINSCREEN         = getvar('LOGINSCREEN')          # e.g. /books/login.html
 # these get used in confirmation emails:
-CONFIRMREGISTRATION = os.environ['CONFIRMREGISTRATION']  # e.g. https://server.yourdomain.org/auth/confirmregistration
-RESETPASSWORD       = os.environ['RESETPASSWORD']        # e.g. https://server.yourdomain.org/auth/resetpassword
+CONFIRMREGISTRATION = getvar('CONFIRMREGISTRATION')  # e.g. https://server.yourdomain.org/auth/confirmregistration
+RESETPASSWORD       = getvar('RESETPASSWORD')        # e.g. https://server.yourdomain.org/auth/resetpassword
 
 # session limits in minutes
 SOFTTIMEOUT = number('SOFTTIMEOUT', 30)
@@ -245,7 +251,7 @@ logout_params         = ParameterSet({})
 login_login_params    = ParameterSet({'login': ('Login', 5), 'password': (allowed_password, 64), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
 login_register_params = ParameterSet({'login': ('Register', 8), 'name': (r"[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} ]+", 100), 'password': (allowed_password, 64), 'password2': (allowed_password, 64), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
 login_forgot_params   = ParameterSet({'login': ('Forgot', 6), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100)})
-newpassword_params    = ParameterSet({'choose': ('Choose', 6), 'email': (r"[^@]+@[^.]+\.[^.]+(\.[^.]+)*", 100), 'password': (allowed_password, 64), 'password2': (allowed_password, 64), 'resetid': (r"[01-9a-f]{32}", 34)})
+newpassword_params    = ParameterSet({'choose': ('Choose', 6), 'password': (allowed_password, 64), 'password2': (allowed_password, 64), 'resetid': (r"[01-9a-f]{32}", 34)})
 stats_params          = ParameterSet()
 confirmation_params   = ParameterSet({'confirmationid': (r"[01-9a-f]{32}", 34)})
 
@@ -302,6 +308,7 @@ class LoginResource:
         resp.location = f'{LOGINSCREEN}?failed'
 
 
+# TODO make mail work based on templates
 class RegisterResource:
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
@@ -344,11 +351,11 @@ class RegisterResource:
                 if mail(f"""
                 Hi {user.name},
 
-                Please confirm your registration on Book collection.
+                Please confirm your registration on Book Collection.
 
-                {CONFIRMREGISTRATION}?{pu.id}
+                {CONFIRMREGISTRATION}?confirmationid={pu.id}
 
-                """, "Confirm your Book collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
+                """, "Confirm your Book Collection registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
                     logger.success('mail successfully sent')
                 else:
                     logger.error('mail not sent')
@@ -391,7 +398,7 @@ class ForgotPasswordResource:
                 We received a request to reset your password. If it wasn't you, please ignore this message.
                 Otherwise, follow this link and select a new password.
 
-                RESETPASSWORD?{pr.id}
+                {RESETPASSWORD}?confirmationid={pr.id}
 
                 """, "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
                     logger.success('mail successfully sent')
@@ -559,13 +566,13 @@ class ConfirmForgotPasswordResource:
         else:
             resp.status = falcon.HTTP_303
             confirmationid = req.params['confirmationid']
+            # TODO remove PasswordReset after successful confirm
             if pr := session.query(PasswordReset).filter(PasswordReset.id == confirmationid).first():
                 logger.success('resetpassword confirmation successful')
                 resp.location = f"{LOGINSCREEN}?choosepassword={pr.id}"
             else:  # no pending confirmation or expired, redirect to login page
                 logger.info('resetpassword link not present or expired')
                 resp.location = f"{LOGINSCREEN}?expired"
-            # TODO clean pending users with same email? (note: only expired)
 
 
 def fetch_admin_params():

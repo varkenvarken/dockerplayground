@@ -147,6 +147,9 @@ services:
       - SMTP_PASSWORD_FILE=/run/secrets/smtp-password
       - ADMIN_USER_FILE=/run/secrets/admin-user
       - ADMIN_PASSWORD_FILE=/run/secrets/admin-password
+      - DATABASE_FILE=/var/lib/sqlite/user.db
+      - DATABASE_BACKOFF=1
+      - DATABASE_RETRIES=3
     env_file: .env
     secrets:
       - smtp-server

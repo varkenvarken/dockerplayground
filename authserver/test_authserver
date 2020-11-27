@@ -22,6 +22,7 @@ export SMTP_PASSWORD=secret
 export SMTP_SERVER=192.168.66.66
 
 export DEBUGLEVEL=DEBUG
+export FUNCTIONALDEBUGLEVEL=ERROR
 
 export SESSION=./mysession
 export RESPONSE=./myresponse

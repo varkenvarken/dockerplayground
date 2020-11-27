@@ -60,7 +60,7 @@ c-53 11 -327 71 -610 133 -466 102 -517 112 -552 101 -159 -48 -184 -255 -39
                 <input id="password" type="password" name="password" placeholder="password">
                 <button id="loginbutton1" type="submit" value="Login" name="login"><i class="fas fa-sign-in-alt"></i></button>
             </form>
-            <form class="forgottenpassword" action="/auth/login" method="post">
+            <form class="forgottenpassword" action="/auth/forgotpassword" method="post">
                 <input class="email" type="email" name="email" placeholder="email">
                 <button id="passwordresetbutton" type="submit" value="Forgot" name="login"><i class="fas fa-envelope"></i></button>
             </form>
@@ -721,7 +721,7 @@ c-2 -197 1 -302 8 -314 7 -13 9 75 6 312 l-5 331 55 0 c30 0 69 -5 87 -11 l31
 </svg>
         </div>
         <div class="forms">
-            <form id="register" class="registrationform" action="/auth/login" method="post">
+            <form id="register" class="registrationform" action="/auth/register" method="post">
                 <div class="callout">Sign up for free</div>
                 <div class="field" aria-label="Enter a valid email address" data-balloon-pos="up">
                     <label for="email">Email</label><input class="email" type="email" name="email" placeholder="yourname@yourdomain.org">
@@ -738,7 +738,7 @@ c-2 -197 1 -302 8 -314 7 -13 9 75 6 312 l-5 331 55 0 c30 0 69 -5 87 -11 l31
                 <div id="registrationerror" class="servererror"></div>
                 <button id="loginbutton2" type="submit" value="Register" name="login" aria-label="Register your account" data-balloon-pos="up"><i class="fas fa-user-plus"></i></button>
             </form>
-            <form id="newpassword"  class="registrationform" action="/auth/newpassword" method="post">
+            <form id="newpassword"  class="registrationform" action="/auth/choosepassword" method="post">
                 <div class="callout">Choose a new password</div>
                 <div class="field" data-balloon-length="large" aria-label="Password must be 8 or more characters and contain a capital, a number and a special character" data-balloon-pos="up">
                     <label for="password">Password</label><input id="newpassword1" type="password" name="password" placeholder="password">

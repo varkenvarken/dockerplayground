@@ -188,17 +188,15 @@ tests = [
         checkheaders=[("reason", "See Other")]),
 
     rq('provide new password', 'POST', f'{host}/choosepassword', 303, variables=localvars,
-        params=dict(email='testuser@example.org', resetid='{confirmationid}', password=ADMIN_PASSWORD, password2=ADMIN_PASSWORD, choose='Choose'),
+        params=dict(resetid='{confirmationid}', password=ADMIN_PASSWORD, password2=ADMIN_PASSWORD, choose='Choose'),
         checkheaders=[("reason", "See Other")]),
 ]
 
 cookies = None
 for t in tests:
-    print()
     result = t.check(cookies, extraparams={'sessionid': cookies['session']} if 'sessioncookie-sessionid' in t.annotations else None)
     print(t)
     if 'keepsession' in t.annotations:
         cookies = {'session': t.getcookievalue('session')}
     if 'confirmationid' in t.annotations:
         localvars['confirmationid'] = fetch(*t.annotations['confirmationid'])
-        print(f"confirmationid ----> {localvars['confirmationid']}")

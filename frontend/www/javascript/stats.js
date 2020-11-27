@@ -12,17 +12,17 @@ $(document).ready(function() {
         var s  = date.getSeconds().toString().padStart(2,'0');
         return yy+"-"+mm+"-"+dd+" "+h+":"+m+":"+s;
     }
-    
+
     $.ajaxSetup({
         xhrFields: {
             withCredentials: true
         }
     });
 
-    var endpointusers = '/auth/stats?users';
-    var endpointsessions = '/auth/stats?sessions';
-    var endpointpendingusers = '/auth/stats?pendingusers';
-    var endpointpasswordresets = '/auth/stats?passwordresets';
+    var endpointusers = '/auth/stats/users';
+    var endpointsessions = '/auth/stats/sessions';
+    var endpointpendingusers = '/auth/stats/pendingusers';
+    var endpointpasswordresets = '/auth/stats/passwordresets';
 
     var columnDefsUsers = [
         {
@@ -226,7 +226,7 @@ $(document).ready(function() {
     $(function() {
         $("#tabs").tabs();
     });
-    
+
     $(".tab").click(function(){
         console.log("click" + $(this).data("table"));
         var tableId = $(this).data("table");
