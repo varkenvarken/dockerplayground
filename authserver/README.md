@@ -28,17 +28,17 @@ Authserver is part of a larger GitHub project called [dockerplayground](https://
 
 [Test](##Test)
 
-[Environment variables](##Environment variables)
+[Environment variables](##Environment%20variables)
 
-[Email templates](##Email templates)
+[Email templates](##Email%20templates)
 
-[Example docker-compose.yml](##Example docker-compose.yml)
+[Example docker-compose.yml](##Example%20docker-compose.yml)
 
 [Usage](#Usage)
 
-[Solution Design](##Solution Design)
+[Solution Design](##Solution%20Design)
 
-[Available endpoints](##Available endpoints)
+[Available endpoints](##Available%20endpoints)
 
 # Installation
 ## Prerequisites
