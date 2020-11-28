@@ -5,7 +5,7 @@ Authserver is a simple authentication server. It is the result of my attempt at 
 It is very much a work in progress and I certainly would not advise to run it in any kind of production environment that faces the internet but my goal is to make it as robust and secure as possible. To that end I will try to provide proper documentation and continuous integration that includes security scanning and code analysis (think [ZAProxy](https://www.zaproxy.org/) and [Bandit](https://pypi.org/project/bandit/) for example).
 
 This readme file tries to give an high level overview of the functionality and how to install Authserver and I hope to provide more detailed documentation (in the source) in the near future, especially on implementation decisions.
-##Functionality
+## Functionality
 Authserver is an authentication backend: this means it maintains a database of user information and sessions and provides web services to access these.
 
 A solution that needs an authentication backend will need to provide HTML pages with things like logon and registration forms and those forms can refer the web services provided by Authserver.
