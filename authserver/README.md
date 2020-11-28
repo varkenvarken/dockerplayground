@@ -5,6 +5,7 @@ Authserver is a simple authentication server. It is the result of my attempt at 
 It is very much a work in progress and I certainly would not advise to run it in any kind of production environment that faces the internet but my goal is to make it as robust and secure as possible. To that end I will try to provide proper documentation and continuous integration that includes security scanning and code analysis (think [ZAProxy](https://www.zaproxy.org/) and [Bandit](https://pypi.org/project/bandit/) for example).
 
 This readme file tries to give an high level overview of the functionality and how to install Authserver and I hope to provide more detailed documentation (in the source) in the near future, especially on implementation decisions.
+
 ## Functionality
 Authserver is an authentication backend: this means it maintains a database of user information and sessions and provides web services to access these.
 
@@ -15,6 +16,7 @@ Authserver provides just a single authentication method: username/password, but 
 Authserver also provides session management: users who successfully authenticate when logging in will create a session and Authserver provides a webservice that can be used by an application back-end to verify if a session is still active. It also expires sessions that are stale or when a user logs out.
 
 Authserver is part of a larger GitHub project called [dockerplayground](https://github.com/varkenvarken/dockerplayground) and in this project it runs inside it own docker container and serves as authentication back-end for a and application that lets user manage their book collection. This application consists of a front end that provides (among other things) logon and registration facilities that communicate with Authserver and a back-end that verifies whether a user has a valid session.
+
 ## Table of contents
 [Authserver](#Authserver)
 
@@ -49,6 +51,7 @@ For local testing and development, requirements are listed in the file `requirem
 Authserver is part of a larger GitHub project called [dockerplayground](https://github.com/varkenvarken/dockerplayground).
 
 You can download or clone the repository in the usual manner and once you have installed it, just make sure that you are inside the toplevel dockerplayground directory to perform the next steps.
+
 ## Test
 To test Authserver locally:
 
@@ -63,6 +66,7 @@ Note that because Authserver is designed to be part of a larger solution it is e
 
 ## Environment variables
 The behavior of Authserver is largely controlled by a number of environment variables.
+
 ### Database configuration
 Authserver uses an sqlite databae to store user information and sessions. The database connection is configured using the following variables:
 
@@ -72,6 +76,7 @@ Authserver uses an sqlite databae to store user information and sessions. The da
 > the number of seconds to wait between connection attempts in seconds (default 1, will double on every attempt).
 - DATABASE_RETRIES
 > the number of times to retry connecting to the database (default 3).
+
 ### URLs
 After submitting a form to one of its endpoints, Authserver will provide a redirection URL in its response (in the `Location` header) depending the success or failure of the activity. Likewise, you will need to provide the links to be used in confirmation emails that are sent upon registration or password resets:
 
@@ -105,9 +110,11 @@ The confirmation mails that will be send need an SMTP server. This SMTP mail may
 > password
 
 Note that the LOGINSCREEN url might be appended with `?error`, `?checkemail` or `?choosepassword=<id>` depending on the circumstances. This might be used by the frontend application to give some feedback to the user.
+
 ### Application name
 - WEBSITE (e.g. `Book Collection`)
 > used in the email templates used for confirmation mails. This is typically *not* a URL.
+
 ### Time limits
 - SOFTTIMEOUT (default 30 minutes)
 > soft session limits in minutes; session will be removed if there is no activity within this time.
@@ -117,6 +124,7 @@ Note that the LOGINSCREEN url might be appended with `?error`, `?checkemail` or 
 > a password reset request must be confirmed within this time.
 - REGISTERTIMEOUT (default 60 minutes)
 > a registration request must be confirmed within this time.
+
 ## Email templates
 Confirmation emails are sent when someone registers a new account or has forgotten their password.
 Authserver comes bundled with two very basic templates but you can either change these templates or point to different ones:
@@ -171,14 +179,17 @@ Authserver is one component in a larger solution that consists of several servic
 The way this is set up we can store sensitive config info in secrets (i.e. files on the server) while the rest of the environment variables might be defined in an `.env` file or even overridden with an explicitely set environment variable.
 
 Also note that the full `docker-compose.yml` file we use in the dockerplayground project has a `labels` section that defines the configuration of the reverse proxy (traefik) to strip `..../auth/....` from any incoming urls and redirect those to Authserver. That way Authserver can run inside its own container will the other parts of the solution might run on their own container(s).
-#Usage
+
+# Usage
 Authserver is designed to be application agnostic: It should be able to function as the authentication back-end for any front-end application.
 
 It is up to the front-end application to present the user with forms to login or logout, as well as provide a registration screen and an option to request a password reset if the end user has forgotten it.
 
-Authserver provides *endpoints* that can be used as the URL used in the action of a <form> element. Those are [listed below](#Available endpoints).
+Authserver provides *endpoints* that can be used as the URL used in the action of a <form> element. Those are [listed below](##Available endpoints).
+
 ## Solution Design
     empty for now ...
+
 ## Available endpoints
 Authserver acts on a small set of URLs to maintain session state and to provide information
 
