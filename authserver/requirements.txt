@@ -8,3 +8,4 @@ loguru
 regex
 requests
 falcon
+gunicorn
