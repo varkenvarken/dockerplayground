@@ -189,7 +189,8 @@ It is up to the front-end application to present the user with forms to login or
 Authserver provides *endpoints* that can be used as the URL used in the action of a `<form>` element. Those are [listed below](#available-endpoints).
 
 ## Solution Design
-    empty for now ...
+
+![Overview of position of authserver in general solution](https://raw.githubusercontent.com/varkenvarken/dockerplayground/master/authserver/docs/Authserver%20in%20general%20solution.svg)
 
 ## Available endpoints
 Authserver acts on a small set of URLs to maintain session state and to provide information
