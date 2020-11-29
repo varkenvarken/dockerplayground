@@ -47,7 +47,8 @@ Authserver is designed and tested on Python 3.8
 It comes with a Dockerfile as it is intended to run inside a Docker container.
 
 For local testing and development, requirements are listed in the file `requirements.txt`
-##Download
+
+## Download
 Authserver is part of a larger GitHub project called [dockerplayground](https://github.com/varkenvarken/dockerplayground).
 
 You can download or clone the repository in the usual manner and once you have installed it, just make sure that you are inside the toplevel dockerplayground directory to perform the next steps.
@@ -62,7 +63,7 @@ This will start the server, perform several unit tests and functional tests and 
 
 The results from the unit tests are saved in `authserver/unittest_report.txt` and coverage is reported in `authserver/coverage_report.txt`. A browsable version of the coverage is available in `authserver/htmlcov/index.html`.
 
-Note that because Authserver is designed to be part of a larger solution it is expected to run inside a docker container as a service in a more complete deployment. The [docker-compose.yml file](https://github.com/varkenvarken/dockerplayground/blob/master/docker-compose.yml) shows such an example, some details a highlighted [below](##Example docker-compose.yml).
+Note that because Authserver is designed to be part of a larger solution it is expected to run inside a docker container as a service in a more complete deployment. The [docker-compose.yml file](https://github.com/varkenvarken/dockerplayground/blob/master/docker-compose.yml) shows such an example, some details a highlighted [below](##Example%20docker-compose.yml).
 
 ## Environment variables
 The behavior of Authserver is largely controlled by a number of environment variables.
@@ -185,7 +186,7 @@ Authserver is designed to be application agnostic: It should be able to function
 
 It is up to the front-end application to present the user with forms to login or logout, as well as provide a registration screen and an option to request a password reset if the end user has forgotten it.
 
-Authserver provides *endpoints* that can be used as the URL used in the action of a <form> element. Those are [listed below](##Available endpoints).
+Authserver provides *endpoints* that can be used as the URL used in the action of a <form> element. Those are [listed below](##Available%20endpoints).
 
 ## Solution Design
     empty for now ...
