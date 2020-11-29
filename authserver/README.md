@@ -18,15 +18,15 @@ Authserver also provides session management: users who successfully authenticate
 Authserver is part of a larger GitHub project called [dockerplayground](https://github.com/varkenvarken/dockerplayground) and in this project it runs inside it own docker container and serves as authentication back-end for a and application that lets user manage their book collection. This application consists of a front end that provides (among other things) logon and registration facilities that communicate with Authserver and a back-end that verifies whether a user has a valid session.
 
 ## Table of contents
-[Authserver](#Authserver)
+[Authserver](#authserver)
 
-[Installation](#Installation)
+[Installation](#installation)
 
-[Prerequisites](##Prerequisites)
+[Prerequisites](#prerequisites)
 
 [Download](#download)
 
-[Test](##Test)
+[Test](#test)
 
 [Environment variables](#environment-variables)
 
@@ -36,9 +36,9 @@ Authserver is part of a larger GitHub project called [dockerplayground](https://
 
 [Usage](#Usage)
 
-[Solution Design](##Solution%20Design)
+[Solution Design](#solution-design)
 
-[Available endpoints](##Available%20endpoints)
+[Available endpoints](#available-endpoints)
 
 # Installation
 ## Prerequisites
@@ -63,7 +63,7 @@ This will start the server, perform several unit tests and functional tests and 
 
 The results from the unit tests are saved in `authserver/unittest_report.txt` and coverage is reported in `authserver/coverage_report.txt`. A browsable version of the coverage is available in `authserver/htmlcov/index.html`.
 
-Note that because Authserver is designed to be part of a larger solution it is expected to run inside a docker container as a service in a more complete deployment. The [docker-compose.yml file](https://github.com/varkenvarken/dockerplayground/blob/master/docker-compose.yml) shows such an example, some details a highlighted [below](##Example%20docker-compose.yml).
+Note that because Authserver is designed to be part of a larger solution it is expected to run inside a docker container as a service in a more complete deployment. The [docker-compose.yml file](https://github.com/varkenvarken/dockerplayground/blob/master/docker-compose.yml) shows such an example, some details a highlighted [below](#example-docker-composeyml).
 
 ## Environment variables
 The behavior of Authserver is largely controlled by a number of environment variables.
@@ -186,7 +186,7 @@ Authserver is designed to be application agnostic: It should be able to function
 
 It is up to the front-end application to present the user with forms to login or logout, as well as provide a registration screen and an option to request a password reset if the end user has forgotten it.
 
-Authserver provides *endpoints* that can be used as the URL used in the action of a `<form>` element. Those are [listed below](##Available%20endpoints).
+Authserver provides *endpoints* that can be used as the URL used in the action of a `<form>` element. Those are [listed below](#available-endpoints).
 
 ## Solution Design
     empty for now ...
@@ -195,54 +195,57 @@ Authserver provides *endpoints* that can be used as the URL used in the action o
 Authserver acts on a small set of URLs to maintain session state and to provide information
 
 - `/login`
-> This is the action end of a login form
-> it accepts a POST verb with the following from encoded parameters in the body
+This is the action end of a login form
+it accepts a POST verb with the following from encoded parameters in the body
    - email
    - password
    - login
 - `/logout`
-> This is the action end of a logout form
-> it accepts a POST verb and the body should be empty
-> a valid sessionid cookie must be provided by the browser.
+This is the action end of a logout form
+it accepts a POST verb and the body should be empty
+a valid sessionid cookie must be provided by the browser.
 - `/verifysession`
-> This should not be accessible from the outside and can be used by your application's backend to verify a session
-> it accepts a POST verb with the following from encoded parameters in the body
+This should not be accessible from the outside and can be used by your application's backend to verify a session
+it accepts a POST verb with the following from encoded parameters in the body
   - sessionid
-> it returns the email address and superuser status of the user associated with the session.
+it returns the email address and superuser status of the user associated with the session.
 - `/register`
-> This is the action end of a registration form
-> it accepts a POST verb with the following from encoded parameters in the body
+This is the action end of a registration form
+it accepts a POST verb with the following from encoded parameters in the body
    - email
    - name
    - password
    - password2
    - login
 - `/confirmregistration`
-> This is typically clicked by the end user because it was sent in an email
-> it accepts a GET verb with the following query parameter
+This is typically clicked by the end user because it was sent in an email
+it accepts a GET verb with the following query parameter
    - confirmationid
 - `/forgotpassword`
-> This is the action end of a forgot password form
-> it accepts a POST verb with the following from encoded parameters in the body
+This is the action end of a forgot password form
+it accepts a POST verb with the following from encoded parameters in the body
    - email
    - login
 - `/confirmforgotpassword`
-> This is typically clicked by the end user because it was sent in an email
-> it accepts a GET verb with the following query parameter
+This is typically clicked by the end user because it was sent in an email
+it accepts a GET verb with the following query parameter
    - confirmationid
-> it will redirect to the login page with `?choosepassword=<id>` attached as query parameter.
+it will redirect to the login page with `?choosepassword=<id>` attached as query parameter.
 - `/choosepassword`
-> This is the action end of a choose new password form
-> it accepts a POST verb with the following from encoded parameters in the body
+This is the action end of a choose new password form
+it accepts a POST verb with the following from encoded parameters in the body
    - email
    - password
    - password2
    - resetid
    - login
-> `resetid` is identical the the one supplied with the confirmpassword url and should typically be included as a hidden field
-> and extracted for this purpose by the client application's login.html from the redirection url. For an example see the end of
-> [login.js](https://github.com/varkenvarken/dockerplayground/blob/master/frontend/www/javascript/login.js) used in the dockerplayground frontend.
+`resetid` is identical the the one supplied with the confirmpassword url and should typically be included as a hidden field
+and extracted for this purpose by the client application's login.html from the redirection url. For an example see the end of
+[login.js](https://github.com/varkenvarken/dockerplayground/blob/master/frontend/www/javascript/login.js) used in the dockerplayground frontend.
 - `/stats/{item}`
-This endpoint provides an overview of the current data in the database. `{item}` can be `users`, `sessions`, `pendingusers` and `passwordresets` and data is returned in JSON format.
-> it accepts a POST verb and the body should be empty but a valid sessionid cookie should be provided for a user who has the superuser role.
+This endpoint provides an overview of the current data in the database.
+
+`{item}` can be `users`, `sessions`, `pendingusers` and `passwordresets` and data is returned in JSON format.
+
+It accepts a POST verb and the body should be empty but a valid sessionid cookie should be provided for a user who has the superuser role.
 
