@@ -49,6 +49,15 @@ logger.info(usercustomize.coverage)
 def number(variable, default):
     """
     Return the integer in the environment variable.
+
+    # Arguments
+
+    variable(str):    the name of the environment variable
+    default(int):     the default value to return if variable is not defined
+
+    # Returns
+
+    An integer value.
     """
     if variable in os.environ:
         return int(os.environ[variable])
@@ -56,12 +65,44 @@ def number(variable, default):
 
 
 def getvar(variable, default='<unknown>'):
+    """
+    Return the value of the environment variable.
+
+    # Arguments
+
+    variable(str):    the name of the environment variable
+    default(str):     the default value to return if variable is not defined
+
+    # Returns
+
+    A string.
+    """
     if variable in os.environ:
         return os.environ[variable]
     return default
 
 
 def getfile(variable, defaultfilename, default='Hi {name}, click {link}, Regards {website}'):
+    """
+    Return the contents of the file specified in the environment variable.
+
+    # Arguments
+
+    variable(str):           the name of the environment variable
+    defaultfilename(str):    the filename to use if the variable is not defined
+    default(str):            the string to return if the file couldn't be found
+
+    the default contains the following placeholders
+
+    - {name}    the full name of the user
+    - {link}    a confirmation link to click
+    - {website} the name of the application/website
+
+    # Returns
+
+    A string.
+
+    """
     filename = defaultfilename
     text = default
     if variable in os.environ:
@@ -110,6 +151,14 @@ def newpassword(password):
 
     The password is salted with 16 random bytes.
     The salt is prepended as 32 hex digits to the returned hash.
+
+    # Arguments
+
+    password(str):  the password to hash.
+
+    # Returns
+
+    A string consisting of 32 + 64 hexadecimal characters.
     """
     salt = urandom(16)
     dk = pbkdf2_hmac('sha256', password.encode(), salt, 100000)

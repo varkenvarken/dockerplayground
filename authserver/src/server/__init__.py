@@ -23,13 +23,14 @@
 The server package implements an authentication server.
 
 It is a WSGI app implemented in falcon and exposes an app variable that can be called from any WSGI server, like gunicorn.
+
 A typical invocation is
 
-gunicorn -b 0.0.0.0:8005 server:app
+    gunicorn -b 0.0.0.0:8005 server:app
 
 On import a sqlite database is initialized and logging is started.
 
-For more information see https://github.com/varkenvarken/dockerplayground/tree/master/authserver
+For more information see [the GitHub repo](https://github.com/varkenvarken/dockerplayground/tree/master/authserver)
 """
 
 from os import environ
