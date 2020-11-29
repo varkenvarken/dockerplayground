@@ -1,3 +1,37 @@
+#  __init__.py, part of the server package
+#
+#  part of https://github.com/varkenvarken/dockerplayground
+#
+#  (c) 2020 Michel Anders (varkenvarken)
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+
+"""
+The server package implements an authentication server.
+
+It is a WSGI app implemented in falcon and exposes an app variable that can be called from any WSGI server, like gunicorn.
+A typical invocation is
+
+gunicorn -b 0.0.0.0:8005 server:app
+
+On import a sqlite database is initialized and logging is started.
+
+For more information see https://github.com/varkenvarken/dockerplayground/tree/master/authserver
+"""
+
 from os import environ
 from sys import stderr
 import falcon
@@ -14,9 +48,13 @@ DATABASE_RETRIES = int(environ['DATABASE_RETRIES']) if 'DATABASE_RETRIES' in env
 
 app = None
 
+# open the sqlite database and initialize a SQLAlchemy sessionmaker
 if get_sessionmaker(f"sqlite:///{DATABASE_FILE}", DATABASE_BACKOFF, DATABASE_RETRIES):
+    # make sure the superuser is present in the database
     if add_superuser():
+        # initialize the falcon WSGI application
         app = falcon.API()
+        # a parameters in form-urlencoded bodies will be added to the request params (just like query params)
         app.req_options.auto_parse_form_urlencoded = True
         app.add_route('/login',                 LoginResource())
         app.add_route('/logout',                LogoutResource())

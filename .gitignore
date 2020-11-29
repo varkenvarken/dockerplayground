@@ -13,3 +13,4 @@
 /authserver/unittest_report.txt
 /authserver/htmlcov/*
 /ATTIC/*
+/authserver/src/user.db
