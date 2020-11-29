@@ -24,15 +24,15 @@ Authserver is part of a larger GitHub project called [dockerplayground](https://
 
 [Prerequisites](##Prerequisites)
 
-[Download](##Download)
+[Download](#download)
 
 [Test](##Test)
 
-[Environment variables](##Environment%20variables)
+[Environment variables](#environment-variables)
 
-[Email templates](##Email%20templates)
+[Email templates](#email-templates)
 
-[Example docker-compose.yml](##Example%20docker-compose.yml)
+[Example docker-compose.yml](#example-docker-composeyml)
 
 [Usage](#Usage)
 
@@ -186,7 +186,7 @@ Authserver is designed to be application agnostic: It should be able to function
 
 It is up to the front-end application to present the user with forms to login or logout, as well as provide a registration screen and an option to request a password reset if the end user has forgotten it.
 
-Authserver provides *endpoints* that can be used as the URL used in the action of a <form> element. Those are [listed below](##Available%20endpoints).
+Authserver provides *endpoints* that can be used as the URL used in the action of a `<form>` element. Those are [listed below](##Available%20endpoints).
 
 ## Solution Design
     empty for now ...
