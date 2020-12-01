@@ -54,7 +54,7 @@ __Attributes__
 - `DEBUGLEVEL`: can be CRITICAL, ERROR, SUCCESS, INFO, DEBUG, TRACE. Defaults to DEBUG
 - `DATABASE_FILE`: path to databse file, default to `user.db
 - `DATABASE_BACKOFF`: number of seconds to ait between database connection retries, defaults to 1, doubles every retry.
-DATABASE_RETRIES = number of times to retry a database connection. Defaults to 3.
+- `DATABASE_RETRIES`: number of times to retry a database connection. Defaults to 3.
 
 <a name="server.server"></a>
 # server.server
@@ -79,7 +79,7 @@ __Attributes__
 - `PWRESETTIMEOUT`: maximum number of minutes before a passwordreset must be confirmed, default 60
 - `REGISTERTIMEOUT`: maximum number of minutes before a new registration must be confirmed, default 60
 - `EMAILTEMPLATE_FORGOTPASSWORD`: file location of password reset email, default `mailtemplates/passwordreset.mail`
-EMAILTEMPLATE_REGISTER = file location of registration email, default `mailtemplates/registration.mail`
+- `EMAILTEMPLATE_REGISTER`: file location of registration email, default `mailtemplates/registration.mail`
 - `ADMIN_USER_FILE`: filename of file containing super user username (valid email address)
 - `ADMIN_USER`: username (valid email address) of super user, will override ADMIN_USER_FILE
 - `ADMIN_PASSWORD_FILE`: filename of file containing super user password in plaintext
