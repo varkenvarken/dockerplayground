@@ -18,6 +18,34 @@
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
+"""
+This module handles the http requests related to user and session management.
+
+It also provides utility functions to initialize the database and admin user.
+
+The attributes defined here contain values retrieved from their corresponding environment variables.
+
+# Attributes
+
+DOMAIN: e.g. yourdomain.org
+APPLICATION: e.g. /books
+LOGINSCREEN: e.g. /books/login.html
+CONFIRMREGISTRATION: e.g. https://server.yourdomain.org/auth/confirmregistration
+RESETPASSWORD: e.g. https://server.yourdomain.org/auth/resetpassword
+WEBSITE: e.g. Book Collection
+SOFTTIMEOUT: soft session limit in minutes, default 30
+HARDTIMEOUT: hard session limit in minutes, default 480
+PWRESETTIMEOUT: maximum number of minutes before a passwordreset must be confirmed, default 60
+REGISTERTIMEOUT: maximum number of minutes before a new registration must be confirmed, default 60
+EMAILTEMPLATE_FORGOTPASSWORD: file location of password reset email, default `mailtemplates/passwordreset.mail`
+EMAILTEMPLATE_REGISTER = file location of registration email, default `mailtemplates/registration.mail`
+ADMIN_USER_FILE: filename of file containing super user username (valid email address)
+ADMIN_USER: username (valid email address) of super user, will override ADMIN_USER_FILE
+ADMIN_PASSWORD_FILE: filename of file containing super user password in plaintext
+ADMIN_PASSWORD: super user password in plaintext, will override ADMIN_PASSWORD_FILE
+
+"""
+
 import usercustomize
 
 from datetime import datetime, date, timedelta
@@ -201,19 +229,31 @@ def allowed_password(s):
 class ParameterSet:
 
     """
-    Defines allowable input parameters for a POST request.
+    Defines allowable input parameters for a POST or GET request.
+
+    # Attributes
+
+    __init__(self, specs={}):   creates a ParameterSet instance based on a dictionary of parameters
+    check(self, params): verify that a dictionary of params conforms to the defined requirements
     """
 
     def __init__(self, specs={}):
         """
-        specs is a dict name --> (ex, maxlength)
+        Creates a ParameterSet instance based on a dictionary of parameters.
 
-        name is a case sentive name of an allowed input parameter
-        ex is either a string, a regular expression or a callable
-        maxlength is an integer
+        # Arguments
 
-        if ex is a string it is converted to a regular expression.
-        if ex is a callable it should return a boolean indicating the validity of a value.
+        specs(dict): specifies a mapping name --> (ex, maxlength)
+
+            `name` is a case sensitive name of an allowed input parameter
+
+            `ex` is either a string, a regular expression or a callable that specifies the validity of a value.
+
+            `maxlength` is an integer that specifies the maximum length of a parameter value
+
+            If `ex` is a string it is converted to a regular expression.
+
+            If `ex` is a callable it should return a boolean indicating the validity of a value.
         """
         self.specs = {}
         for k, v in specs.items():
@@ -226,11 +266,15 @@ class ParameterSet:
 
     def check(self, params):
         """
-        return true if the params are all allowed.
+        Return true if all params are all allowed.
 
-        params is a dict name --> value where name and value are strings
+        # Arguments
 
-        if params contains extra parameters or it is missing items it is considered invalid.
+        params(dict): is a mapping name --> value,  where name and value are strings
+
+            Each value should match the requirements specfied for 'name'.
+
+            If `params` contains extra parameters or it is missing items it is considered invalid.
         """
         logger.debug(f'params {params}')
         if set(params.keys()) == self.keys:  # all input names should be present
@@ -256,9 +300,34 @@ Base = declarative_base()
 
 def alchemyencoder(obj):
     """
-    A json encoder for ORM objects, date and Decimal objects.
+    A json encoder for SQLAlchemy declarative_base objects, date and Decimal objects.
 
-    like all default encoders for json it returns strings which are then encoded to json.
+    `Base` objects are returned a `dict` object with a key for each column.
+    A column with a name equal to `password` is _not_ included.
+    If a Base object has a `user` column, an extra key `email` is added that contains `user.email`.
+
+
+    `date` objects are returned as an isoformat string.
+
+    `Decimal` objects are returned as a float.
+
+    # Arguments
+
+    obj(object): an object to decode
+
+    # Returns
+
+    A `dict`, `str`, `float` or `None`.
+
+    Like all default encoders for json it returns objects which are then encoded to json strings by the main encoder.
+
+    # Example
+
+    ```
+    import json
+
+    jsonstring = json.dumps(someobject, default=alchemyencoder)
+    ```
     """
     if isinstance(obj, Base):
         d = {c.name: getattr(obj, c.name) for c in obj.__table__.columns if c.name != 'password'}  # passwords *never* leave the system, not even encrypted
@@ -272,6 +341,23 @@ def alchemyencoder(obj):
 
 
 class User(Base):
+    """
+    ORM representation of a User.
+
+    # Attributes
+
+    id(int): primary key
+    email(str): user name (a valid email address)
+    password(str): hashed password
+    name(str): full name
+    superuser(bool): role, true if superuser
+    created(datetime): timestamp
+    active(bool): true if user account is enabled
+    attempts(int): number of failed login attemtps
+    accessed(datetime): timestamp of last access
+    locked(datetime): timestamp of user lockout
+
+    """
     __tablename__ = 'user'
     id          = Column(Integer, primary_key=True)
     email       = Column(String(100), unique=True)
@@ -286,6 +372,21 @@ class User(Base):
 
 
 class Session(Base):
+    """
+    ORM representation of a Session.
+
+    # Attributes
+
+    id(str): primary key holds a guid
+    created(datetime): timestamp
+    softlimit(datetime): timestamp, session must show activity before this time to be renewed
+    hardlimit(datetime): timestamp, after this time the session will be removed regardless
+    userid(int): foreign key to User, on cascade delete is on
+    user: ORM link to User
+
+
+    This session will be deleted if the corresponding user is deleted.
+    """
     __tablename__ = 'session'
     id          = Column(String(34), primary_key=True)  # holds a guid
     created     = Column(DateTime(), default=datetime.now())
@@ -296,6 +397,19 @@ class Session(Base):
 
 
 class PendingUser(Base):
+    """
+    ORM representation of a PendingUser (a newly registered user awaiting confirmation).
+
+    # Attributes
+
+    id(str): primary key holds a guid
+    email(str): user name (a valid email address)
+    password(str): hashed password
+    name(str): full name
+    created(datetime): timestamp
+    expires(datetime): timestamp, after this time the session will be removed regardless
+    """
+
     __tablename__ = 'pendinguser'
     id          = Column(String(34), primary_key=True)  # holds a guid
     email       = Column(String(100), unique=True)
@@ -306,6 +420,20 @@ class PendingUser(Base):
 
 
 class PasswordReset(Base):
+    """
+    ORM representation of a PasswordReset event awaiting confirmation.
+
+    # Attributes
+
+    id(str): primary key holds a guid
+    created(datetime): timestamp
+    expires(datetime): timestamp, after this time the session will be removed regardless
+    userid(int): foreign key to User, on cascade delete is on
+    user: ORM link to User
+
+
+    This PasswordReset will be deleted if the corresponding user is deleted.
+    """
     __tablename__ = 'passwordreset'
     id          = Column(String(34), primary_key=True)  # holds a guid
     created     = Column(DateTime(), default=datetime.now())
@@ -325,7 +453,21 @@ confirmation_params   = ParameterSet({'confirmationid': (r"[01-9a-f]{32}", 34)})
 
 
 def max_body(limit):
+    """
+    A falcon before hook to limit size of request body.
 
+    # Arguments
+
+    limit(int): maximum size in bytes of the request body.
+
+    # Raises
+
+    falcon.HTTPPayloadTooLarge: when the body of the request exceeds `limit`.
+
+    # Returns
+
+    a hook function.
+    """
     def hook(req, resp, resource, params):
         length = req.content_length
         if length is not None and length > limit:
@@ -339,8 +481,36 @@ def max_body(limit):
 
 
 class LoginResource:
+    """
+    Routing endpoint that serves the action of a login form.
+
+    This resource only defines an `on_post()` method.
+    """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
+        """
+        Handle a logon POST request.
+
+        # Arguments
+        req: the request
+        resp: the response
+
+        # Returns
+        None
+
+        The method expects its input as www-formencoded parameters in the request body.
+        On success it will set the Location header to APPLICATION and return a session cookie.
+        On failure it will set the Location header to LOGINSCREEN.
+        It will always set the response status to falcon.HTTP_303.
+
+        # Parameters
+
+        - email: the username of the user (a valid email address)
+        - password: the password
+        - login: the literal text `Login`
+
+        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Login` attribute.
+        """
         logger.info('LoginResource')
         global DBSession
         if not login_login_params.check(req.params):
@@ -377,8 +547,39 @@ class LoginResource:
 
 
 class RegisterResource:
+    """
+    Routing endpoint that serves the action of a registration form.
+
+    This resource only defines an `on_post()` method.
+    """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
+        """
+        Handle a register POST request.
+
+        # Arguments
+        req: the request
+        resp: the response
+
+        # Returns
+        None
+
+        The method expects its input as www-formencoded parameters in the request body.
+        On success it will create a pending user request and send an email with a confirmation link.
+        On failure it will do nothing.
+        It will always set the Location header to LOGINSCREEN.
+        It will always set the response status to falcon.HTTP_303.
+
+        # Parameters
+
+        - email: the username of the user (a valid email address)
+        - name: the full name of the user
+        - password: the password ( 8 >= length <= 64, must contain at lease 1 lowercase, 1 uppercase, 1 digit and 1 special char.
+        - password2: must be identical to the password parameter
+        - login: the literal text `Register`
+
+        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Register` attribute.
+        """
         logger.info('RegisterResource')
         global DBSession
         session = DBSession()
@@ -422,6 +623,11 @@ class RegisterResource:
 
 
 class ForgotPasswordResource:
+    """
+    Routing endpoint that serves the action of a forgot password form.
+
+    This resource only defines an `on_post()` method.
+    """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
         logger.info('ForgotPasswordResource')
@@ -459,6 +665,11 @@ class ForgotPasswordResource:
 
 
 class VerifySessionResource:
+    """
+    Routing endpoint that serves as the internal endpoint to verify the existence of a valid session.
+
+    This resource only defines an `on_post()` method.
+    """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
         logger.info('VerifySessionResource')
@@ -497,6 +708,11 @@ class VerifySessionResource:
 
 
 class LogoutResource:
+    """
+    Routing endpoint that serves the action of a logout form.
+
+    This resource only defines an `on_post()` method.
+    """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
         logger.info('LogoutResource')
@@ -520,6 +736,11 @@ class LogoutResource:
 
 
 class ChoosePasswordResource:
+    """
+    Routing endpoint that serves the action of a choose new password form.
+
+    This resource only defines an `on_post()` method.
+    """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
         logger.info('ChoosePasswordResource')
@@ -547,6 +768,11 @@ class ChoosePasswordResource:
 
 
 class StatsResource:
+    """
+    Routing endpoint that serves the REST endpoint for user information overviews.
+
+    This resource only defines an `on_post()` method.
+    """
     @falcon.before(max_body(0))
     def on_post(self, req, resp, item):
         logger.info('StatsResource')
@@ -578,6 +804,11 @@ class StatsResource:
 
 
 class ConfirmRegistrationResource:
+    """
+    Routing endpoint that serves the registration confirmation link.
+
+    This resource only defines an `on_get()` method.
+    """
     @falcon.before(max_body(0))
     def on_get(self, req, resp):
         logger.info('ConfirmRegistrationResource')
@@ -606,6 +837,11 @@ class ConfirmRegistrationResource:
 
 
 class ConfirmForgotPasswordResource:
+    """
+    Routing endpoint that serves the password reset confirmation link.
+
+    This resource only defines an `on_get()` method.
+    """
     @falcon.before(max_body(0))
     def on_get(self, req, resp):
         logger.info('ConfirmForgotPasswordResource')
@@ -632,6 +868,17 @@ def fetch_admin_params():
     Get admin variables from file or environment.
 
     enviroment variables overrule variables in files.
+
+    # Returns
+    tuple(admin_user, admin_password)
+
+    # Module level attributes referenced
+
+    - ADMIN_USER_FILE: filename of file containing super user username (valid email address)
+    - ADMIN_USER: username (valid email address) of super user, will override ADMIN_USER_FILE
+    - ADMIN_PASSWORD_FILE: filename of file containing super user password in plaintext
+    - ADMIN_PASSWORD: super user password in plaintext, will override ADMIN_PASSWORD_FILE
+
     """
     env = {}
     for var in ('ADMIN_USER', 'ADMIN_PASSWORD'):
@@ -649,6 +896,11 @@ def fetch_admin_params():
 
 
 def add_superuser():
+    """
+    Add superuser account to User table.
+
+    Will remove any user account with the same name along with any associated session.
+    """
     global DBSession
     username, password = fetch_admin_params()
     session = DBSession()

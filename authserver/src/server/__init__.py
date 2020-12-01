@@ -31,6 +31,15 @@ A typical invocation is
 On import a sqlite database is initialized and logging is started.
 
 For more information see [the GitHub repo](https://github.com/varkenvarken/dockerplayground/tree/master/authserver)
+
+The following attributes will be initialized to the values defined in the corresponding environment variables
+
+# Attributes
+
+DEBUGLEVEL: can be CRITICAL, ERROR, SUCCESS, INFO, DEBUG, TRACE. Defaults to DEBUG
+DATABASE_FILE: path to databse file, default to `user.db
+DATABASE_BACKOFF: number of seconds to ait between database connection retries, defaults to 1, doubles every retry.
+DATABASE_RETRIES = number of times to retry a database connection. Defaults to 3.
 """
 
 from os import environ
