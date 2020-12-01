@@ -40,6 +40,8 @@ Authserver is part of a larger GitHub project called [dockerplayground](https://
 
 [Available endpoints](#available-endpoints)
 
+[Source Documentation](#source-documentation)
+
 # Installation
 ## Prerequisites
 Authserver is designed and tested on Python 3.8
@@ -250,3 +252,6 @@ This endpoint provides an overview of the current data in the database.
 
 It accepts a POST verb and the body should be empty but a valid sessionid cookie should be provided for a user who has the superuser role.
 
+#Source Documentation
+
+Source documentation for the authserver package is available [here](https://github.com/varkenvarken/dockerplayground/blob/master/authserver/docs/server.md).
