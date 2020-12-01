@@ -38,7 +38,7 @@ HARDTIMEOUT: hard session limit in minutes, default 480
 PWRESETTIMEOUT: maximum number of minutes before a passwordreset must be confirmed, default 60
 REGISTERTIMEOUT: maximum number of minutes before a new registration must be confirmed, default 60
 EMAILTEMPLATE_FORGOTPASSWORD: file location of password reset email, default `mailtemplates/passwordreset.mail`
-EMAILTEMPLATE_REGISTER = file location of registration email, default `mailtemplates/registration.mail`
+EMAILTEMPLATE_REGISTER: file location of registration email, default `mailtemplates/registration.mail`
 ADMIN_USER_FILE: filename of file containing super user username (valid email address)
 ADMIN_USER: username (valid email address) of super user, will override ADMIN_USER_FILE
 ADMIN_PASSWORD_FILE: filename of file containing super user password in plaintext
