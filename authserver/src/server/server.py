@@ -25,24 +25,24 @@ It also provides utility functions to initialize the database and admin user.
 
 The attributes defined here contain values retrieved from their corresponding environment variables.
 
-# Attributes
+Attributes:
 
-DOMAIN: e.g. yourdomain.org
-APPLICATION: e.g. /books
-LOGINSCREEN: e.g. /books/login.html
-CONFIRMREGISTRATION: e.g. https://server.yourdomain.org/auth/confirmregistration
-RESETPASSWORD: e.g. https://server.yourdomain.org/auth/resetpassword
-WEBSITE: e.g. Book Collection
-SOFTTIMEOUT: soft session limit in minutes, default 30
-HARDTIMEOUT: hard session limit in minutes, default 480
-PWRESETTIMEOUT: maximum number of minutes before a passwordreset must be confirmed, default 60
-REGISTERTIMEOUT: maximum number of minutes before a new registration must be confirmed, default 60
-EMAILTEMPLATE_FORGOTPASSWORD: file location of password reset email, default `mailtemplates/passwordreset.mail`
-EMAILTEMPLATE_REGISTER: file location of registration email, default `mailtemplates/registration.mail`
-ADMIN_USER_FILE: filename of file containing super user username (valid email address)
-ADMIN_USER: username (valid email address) of super user, will override ADMIN_USER_FILE
-ADMIN_PASSWORD_FILE: filename of file containing super user password in plaintext
-ADMIN_PASSWORD: super user password in plaintext, will override ADMIN_PASSWORD_FILE
+- DOMAIN e.g. yourdomain.org
+- APPLICATION e.g. /books
+- LOGINSCREEN e.g. /books/login.html
+- CONFIRMREGISTRATION e.g. https://server.yourdomain.org/auth/confirmregistration
+- RESETPASSWORD e.g. https://server.yourdomain.org/auth/resetpassword
+- WEBSITE e.g. Book Collection
+- SOFTTIMEOUT soft session limit in minutes, default 30
+- HARDTIMEOUT hard session limit in minutes, default 480
+- PWRESETTIMEOUT maximum number of minutes before a passwordreset must be confirmed, default 60
+- REGISTERTIMEOUT maximum number of minutes before a new registration must be confirmed, default 60
+- EMAILTEMPLATE_FORGOTPASSWORD file location of password reset email, default `mailtemplates/passwordreset.mail`
+- EMAILTEMPLATE_REGISTER file location of registration email, default `mailtemplates/registration.mail`
+- ADMIN_USER_FILE filename of file containing super user username (valid email address)
+- ADMIN_USER username (valid email address) of super user, will override ADMIN_USER_FILE
+- ADMIN_PASSWORD_FILE filename of file containing super user password in plaintext
+- ADMIN_PASSWORD super user password in plaintext, will override ADMIN_PASSWORD_FILE
 
 """
 
@@ -120,7 +120,7 @@ def getfile(variable, defaultfilename, default='Hi {name}, click {link}, Regards
     defaultfilename(str):    the filename to use if the variable is not defined
     default(str):            the string to return if the file couldn't be found
 
-    the default contains the following placeholders
+    the default contains the following placeholders that can be used in the actual files as well
 
     - {name}    the full name of the user
     - {link}    a confirmation link to click
@@ -630,11 +630,35 @@ class ForgotPasswordResource:
     """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
+        """
+        Handle a forgotpassword POST request.
+
+        # Arguments
+        req: the request
+        resp: the response
+
+        # Returns
+        None
+
+        The method expects its input as www-formencoded parameters in the request body.
+        On success it will create a password reset request and send an email with a confirmation link.
+        On failure it will do nothing.
+        It will always set the Location header to LOGINSCREEN.
+        It will always set the response status to falcon.HTTP_303.
+
+        # Parameters
+
+        - email: the username of the user (a valid email address)
+        - login: the literal text `Forgot`
+
+        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Forgot` attribute.
+        """
         logger.info('ForgotPasswordResource')
         global DBSession
         session = DBSession()
-        resp.status = falcon.HTTP_404
-        resp.location = LOGINSCREEN
+        # we always send the same response, no matter if the user exists or not
+        resp.status = falcon.HTTP_303
+        resp.location = f"{LOGINSCREEN}?checkemail"
 
         params = req.params
         if not login_forgot_params.check(params):
@@ -642,10 +666,6 @@ class ForgotPasswordResource:
         else:
             email = params['email']
             user = session.query(User).filter(User.email == email).first()
-
-            # we always send the same response, no matter if the user exists or not
-            resp.status = falcon.HTTP_303
-            resp.location = f"{LOGINSCREEN}?checkemail"
 
             user = session.query(User).filter(User.email == email).first()
             if not user:  # no user found but we are not providing this information
@@ -672,6 +692,37 @@ class VerifySessionResource:
     """
     @falcon.before(max_body(1024))
     def on_post(self, req, resp):
+        """
+        Handle a verifysession POST request.
+
+        # Arguments
+        req: the request
+        resp: the response
+
+        # Returns
+        On success the body will contain the following key=value pairs separated by newline characters
+
+        - email(str)
+        - id(int)
+        - name(str)
+        - superuser(book)
+
+        The method expects its input as www-formencoded parameters in the request body.
+        On success it will the session data and set the response status to falcon.HTTP_200.
+        On failure it will do nothing and return a response status of falcon.HTTP_404.
+
+        # Request parameters
+
+        - email: the username of the user (a valid email address)
+        - login: the literal text `Forgot`
+
+        This method should not be called from the browser. It is typically called by other backend servers to verify
+        the validity of a session and get the email address, name and superuser status of that session.
+
+        It does not accept request that have an `X-Forwarded-Host` header defined, so if the authserver and the backend
+        server are positioned behind a reverse proxy that adds these headers (like traefik) all things be fine.
+        """
+
         logger.info('VerifySessionResource')
         global DBSession
         session = DBSession()

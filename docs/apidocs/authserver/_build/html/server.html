@@ -1,0 +1,704 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>server package &#8212; src  documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="smtp package" href="smtp.html" />
+    <link rel="prev" title="Welcome to src’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="server-package">
+<h1>server package<a class="headerlink" href="#server-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-server.server">
+<span id="server-server-module"></span><h2>server.server module<a class="headerlink" href="#module-server.server" title="Permalink to this headline">¶</a></h2>
+<p>This module handles the http requests related to user and session management.</p>
+<p>It also provides utility functions to initialize the database and admin user.</p>
+<p>The attributes defined here contain values retrieved from their corresponding environment variables.</p>
+<p>Attributes:</p>
+<ul class="simple">
+<li><p>DOMAIN e.g. yourdomain.org</p></li>
+<li><p>APPLICATION e.g. /books</p></li>
+<li><p>LOGINSCREEN e.g. /books/login.html</p></li>
+<li><p>CONFIRMREGISTRATION e.g. <a class="reference external" href="https://server.yourdomain.org/auth/confirmregistration">https://server.yourdomain.org/auth/confirmregistration</a></p></li>
+<li><p>RESETPASSWORD e.g. <a class="reference external" href="https://server.yourdomain.org/auth/resetpassword">https://server.yourdomain.org/auth/resetpassword</a></p></li>
+<li><p>WEBSITE e.g. Book Collection</p></li>
+<li><p>SOFTTIMEOUT soft session limit in minutes, default 30</p></li>
+<li><p>HARDTIMEOUT hard session limit in minutes, default 480</p></li>
+<li><p>PWRESETTIMEOUT maximum number of minutes before a passwordreset must be confirmed, default 60</p></li>
+<li><p>REGISTERTIMEOUT maximum number of minutes before a new registration must be confirmed, default 60</p></li>
+<li><p>EMAILTEMPLATE_FORGOTPASSWORD file location of password reset email, default <cite>mailtemplates/passwordreset.mail</cite></p></li>
+<li><p>EMAILTEMPLATE_REGISTER file location of registration email, default <cite>mailtemplates/registration.mail</cite></p></li>
+<li><p>ADMIN_USER_FILE filename of file containing super user username (valid email address)</p></li>
+<li><p>ADMIN_USER username (valid email address) of super user, will override ADMIN_USER_FILE</p></li>
+<li><p>ADMIN_PASSWORD_FILE filename of file containing super user password in plaintext</p></li>
+<li><p>ADMIN_PASSWORD super user password in plaintext, will override ADMIN_PASSWORD_FILE</p></li>
+</ul>
+<dl class="py class">
+<dt id="server.server.ChoosePasswordResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">ChoosePasswordResource</code><a class="reference internal" href="_modules/server/server.html#ChoosePasswordResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ChoosePasswordResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the action of a choose new password form.</p>
+<p>This resource only defines an <cite>on_post()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.ChoosePasswordResource.on_post">
+<code class="sig-name descname">on_post</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#ChoosePasswordResource.on_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ChoosePasswordResource.on_post" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.ConfirmForgotPasswordResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">ConfirmForgotPasswordResource</code><a class="reference internal" href="_modules/server/server.html#ConfirmForgotPasswordResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ConfirmForgotPasswordResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the password reset confirmation link.</p>
+<p>This resource only defines an <cite>on_get()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.ConfirmForgotPasswordResource.on_get">
+<code class="sig-name descname">on_get</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#ConfirmForgotPasswordResource.on_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ConfirmForgotPasswordResource.on_get" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.ConfirmRegistrationResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">ConfirmRegistrationResource</code><a class="reference internal" href="_modules/server/server.html#ConfirmRegistrationResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ConfirmRegistrationResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the registration confirmation link.</p>
+<p>This resource only defines an <cite>on_get()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.ConfirmRegistrationResource.on_get">
+<code class="sig-name descname">on_get</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#ConfirmRegistrationResource.on_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ConfirmRegistrationResource.on_get" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.ForgotPasswordResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">ForgotPasswordResource</code><a class="reference internal" href="_modules/server/server.html#ForgotPasswordResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ForgotPasswordResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the action of a forgot password form.</p>
+<p>This resource only defines an <cite>on_post()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.ForgotPasswordResource.on_post">
+<code class="sig-name descname">on_post</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#ForgotPasswordResource.on_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ForgotPasswordResource.on_post" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle a forgotpassword POST request.</p>
+<p># Arguments
+req: the request
+resp: the response</p>
+<p># Returns
+None</p>
+<p>The method expects its input as www-formencoded parameters in the request body.
+On success it will create a password reset request and send an email with a confirmation link.
+On failure it will do nothing.
+It will always set the Location header to LOGINSCREEN.
+It will always set the response status to falcon.HTTP_303.</p>
+<p># Parameters</p>
+<ul class="simple">
+<li><p>email: the username of the user (a valid email address)</p></li>
+<li><p>login: the literal text <cite>Forgot</cite></p></li>
+</ul>
+<p>Typically these parameters would correspond to input fields in an HTML form and a submit button wit a <cite>name=Forgot</cite> attribute.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.LoginResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">LoginResource</code><a class="reference internal" href="_modules/server/server.html#LoginResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.LoginResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the action of a login form.</p>
+<p>This resource only defines an <cite>on_post()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.LoginResource.on_post">
+<code class="sig-name descname">on_post</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#LoginResource.on_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.LoginResource.on_post" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle a logon POST request.</p>
+<p># Arguments
+req: the request
+resp: the response</p>
+<p># Returns
+None</p>
+<p>The method expects its input as www-formencoded parameters in the request body.
+On success it will set the Location header to APPLICATION and return a session cookie.
+On failure it will set the Location header to LOGINSCREEN.
+It will always set the response status to falcon.HTTP_303.</p>
+<p># Parameters</p>
+<ul class="simple">
+<li><p>email: the username of the user (a valid email address)</p></li>
+<li><p>password: the password</p></li>
+<li><p>login: the literal text <cite>Login</cite></p></li>
+</ul>
+<p>Typically these parameters would correspond to input fields in an HTML form and a submit button wit a <cite>name=Login</cite> attribute.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.LogoutResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">LogoutResource</code><a class="reference internal" href="_modules/server/server.html#LogoutResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.LogoutResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the action of a logout form.</p>
+<p>This resource only defines an <cite>on_post()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.LogoutResource.on_post">
+<code class="sig-name descname">on_post</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#LogoutResource.on_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.LogoutResource.on_post" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.ParameterSet">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">ParameterSet</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">specs</span><span class="o">=</span><span class="default_value">{}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#ParameterSet"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ParameterSet" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Defines allowable input parameters for a POST or GET request.</p>
+<p># Attributes</p>
+<p>__init__(self, specs={}):   creates a ParameterSet instance based on a dictionary of parameters
+check(self, params): verify that a dictionary of params conforms to the defined requirements</p>
+<dl class="py method">
+<dt id="server.server.ParameterSet.check">
+<code class="sig-name descname">check</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">params</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#ParameterSet.check"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.ParameterSet.check" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return true if all params are all allowed.</p>
+<p># Arguments</p>
+<p>params(dict): is a mapping name –&gt; value,  where name and value are strings</p>
+<blockquote>
+<div><p>Each value should match the requirements specfied for ‘name’.</p>
+<p>If <cite>params</cite> contains extra parameters or it is missing items it is considered invalid.</p>
+</div></blockquote>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.PasswordReset">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">PasswordReset</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#PasswordReset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.PasswordReset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
+<p>ORM representation of a PasswordReset event awaiting confirmation.</p>
+<p># Attributes</p>
+<p>id(str): primary key holds a guid
+created(datetime): timestamp
+expires(datetime): timestamp, after this time the session will be removed regardless
+userid(int): foreign key to User, on cascade delete is on
+user: ORM link to User</p>
+<p>This PasswordReset will be deleted if the corresponding user is deleted.</p>
+<dl class="py attribute">
+<dt id="server.server.PasswordReset.created">
+<code class="sig-name descname">created</code><a class="headerlink" href="#server.server.PasswordReset.created" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PasswordReset.expires">
+<code class="sig-name descname">expires</code><a class="headerlink" href="#server.server.PasswordReset.expires" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PasswordReset.id">
+<code class="sig-name descname">id</code><a class="headerlink" href="#server.server.PasswordReset.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PasswordReset.user">
+<code class="sig-name descname">user</code><a class="headerlink" href="#server.server.PasswordReset.user" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PasswordReset.userid">
+<code class="sig-name descname">userid</code><a class="headerlink" href="#server.server.PasswordReset.userid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.PendingUser">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">PendingUser</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#PendingUser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.PendingUser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
+<p>ORM representation of a PendingUser (a newly registered user awaiting confirmation).</p>
+<p># Attributes</p>
+<p>id(str): primary key holds a guid
+email(str): user name (a valid email address)
+password(str): hashed password
+name(str): full name
+created(datetime): timestamp
+expires(datetime): timestamp, after this time the session will be removed regardless</p>
+<dl class="py attribute">
+<dt id="server.server.PendingUser.created">
+<code class="sig-name descname">created</code><a class="headerlink" href="#server.server.PendingUser.created" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PendingUser.email">
+<code class="sig-name descname">email</code><a class="headerlink" href="#server.server.PendingUser.email" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PendingUser.expires">
+<code class="sig-name descname">expires</code><a class="headerlink" href="#server.server.PendingUser.expires" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PendingUser.id">
+<code class="sig-name descname">id</code><a class="headerlink" href="#server.server.PendingUser.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PendingUser.name">
+<code class="sig-name descname">name</code><a class="headerlink" href="#server.server.PendingUser.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.PendingUser.password">
+<code class="sig-name descname">password</code><a class="headerlink" href="#server.server.PendingUser.password" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.RegisterResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">RegisterResource</code><a class="reference internal" href="_modules/server/server.html#RegisterResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.RegisterResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the action of a registration form.</p>
+<p>This resource only defines an <cite>on_post()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.RegisterResource.on_post">
+<code class="sig-name descname">on_post</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#RegisterResource.on_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.RegisterResource.on_post" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle a register POST request.</p>
+<p># Arguments
+req: the request
+resp: the response</p>
+<p># Returns
+None</p>
+<p>The method expects its input as www-formencoded parameters in the request body.
+On success it will create a pending user request and send an email with a confirmation link.
+On failure it will do nothing.
+It will always set the Location header to LOGINSCREEN.
+It will always set the response status to falcon.HTTP_303.</p>
+<p># Parameters</p>
+<ul class="simple">
+<li><p>email: the username of the user (a valid email address)</p></li>
+<li><p>name: the full name of the user</p></li>
+<li><p>password: the password ( 8 &gt;= length &lt;= 64, must contain at lease 1 lowercase, 1 uppercase, 1 digit and 1 special char.</p></li>
+<li><p>password2: must be identical to the password parameter</p></li>
+<li><p>login: the literal text <cite>Register</cite></p></li>
+</ul>
+<p>Typically these parameters would correspond to input fields in an HTML form and a submit button wit a <cite>name=Register</cite> attribute.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.Session">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">Session</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#Session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.Session" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
+<p>ORM representation of a Session.</p>
+<p># Attributes</p>
+<p>id(str): primary key holds a guid
+created(datetime): timestamp
+softlimit(datetime): timestamp, session must show activity before this time to be renewed
+hardlimit(datetime): timestamp, after this time the session will be removed regardless
+userid(int): foreign key to User, on cascade delete is on
+user: ORM link to User</p>
+<p>This session will be deleted if the corresponding user is deleted.</p>
+<dl class="py attribute">
+<dt id="server.server.Session.created">
+<code class="sig-name descname">created</code><a class="headerlink" href="#server.server.Session.created" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.Session.hardlimit">
+<code class="sig-name descname">hardlimit</code><a class="headerlink" href="#server.server.Session.hardlimit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.Session.id">
+<code class="sig-name descname">id</code><a class="headerlink" href="#server.server.Session.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.Session.softlimit">
+<code class="sig-name descname">softlimit</code><a class="headerlink" href="#server.server.Session.softlimit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.Session.user">
+<code class="sig-name descname">user</code><a class="headerlink" href="#server.server.Session.user" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.Session.userid">
+<code class="sig-name descname">userid</code><a class="headerlink" href="#server.server.Session.userid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.StatsResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">StatsResource</code><a class="reference internal" href="_modules/server/server.html#StatsResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.StatsResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves the REST endpoint for user information overviews.</p>
+<p>This resource only defines an <cite>on_post()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.StatsResource.on_post">
+<code class="sig-name descname">on_post</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em>, <em class="sig-param"><span class="n">item</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#StatsResource.on_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.StatsResource.on_post" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.User">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">User</code><span class="sig-paren">(</span><em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#User"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.User" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
+<p>ORM representation of a User.</p>
+<p># Attributes</p>
+<p>id(int): primary key
+email(str): user name (a valid email address)
+password(str): hashed password
+name(str): full name
+superuser(bool): role, true if superuser
+created(datetime): timestamp
+active(bool): true if user account is enabled
+attempts(int): number of failed login attemtps
+accessed(datetime): timestamp of last access
+locked(datetime): timestamp of user lockout</p>
+<dl class="py attribute">
+<dt id="server.server.User.accessed">
+<code class="sig-name descname">accessed</code><a class="headerlink" href="#server.server.User.accessed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.active">
+<code class="sig-name descname">active</code><a class="headerlink" href="#server.server.User.active" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.attempts">
+<code class="sig-name descname">attempts</code><a class="headerlink" href="#server.server.User.attempts" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.created">
+<code class="sig-name descname">created</code><a class="headerlink" href="#server.server.User.created" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.email">
+<code class="sig-name descname">email</code><a class="headerlink" href="#server.server.User.email" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.id">
+<code class="sig-name descname">id</code><a class="headerlink" href="#server.server.User.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.locked">
+<code class="sig-name descname">locked</code><a class="headerlink" href="#server.server.User.locked" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.name">
+<code class="sig-name descname">name</code><a class="headerlink" href="#server.server.User.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.password">
+<code class="sig-name descname">password</code><a class="headerlink" href="#server.server.User.password" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="server.server.User.superuser">
+<code class="sig-name descname">superuser</code><a class="headerlink" href="#server.server.User.superuser" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="server.server.VerifySessionResource">
+<em class="property">class </em><code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">VerifySessionResource</code><a class="reference internal" href="_modules/server/server.html#VerifySessionResource"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.VerifySessionResource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Routing endpoint that serves as the internal endpoint to verify the existence of a valid session.</p>
+<p>This resource only defines an <cite>on_post()</cite> method.</p>
+<dl class="py method">
+<dt id="server.server.VerifySessionResource.on_post">
+<code class="sig-name descname">on_post</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">req</span></em>, <em class="sig-param"><span class="n">resp</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#VerifySessionResource.on_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.VerifySessionResource.on_post" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle a verifysession POST request.</p>
+<p># Arguments
+req: the request
+resp: the response</p>
+<p># Returns
+On success the body will contain the following key=value pairs separated by newline characters</p>
+<ul class="simple">
+<li><p>email(str)</p></li>
+<li><p>id(int)</p></li>
+<li><p>name(str)</p></li>
+<li><p>superuser(book)</p></li>
+</ul>
+<p>The method expects its input as www-formencoded parameters in the request body.
+On success it will the session data and set the response status to falcon.HTTP_200.
+On failure it will do nothing and return a response status of falcon.HTTP_404.</p>
+<p># Request parameters</p>
+<ul class="simple">
+<li><p>email: the username of the user (a valid email address)</p></li>
+<li><p>login: the literal text <cite>Forgot</cite></p></li>
+</ul>
+<p>This method should not be called from the browser. It is typically called by other backend servers to verify
+the validity of a session and get the email address, name and superuser status of that session.</p>
+<p>It does not accept request that have an <cite>X-Forwarded-Host</cite> header defined, so if the authserver and the backend
+server are positioned behind a reverse proxy that adds these headers (like traefik) all things be fine.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="server.server.VerifySessionResource.session_active">
+<code class="sig-name descname">session_active</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">session</span></em>, <em class="sig-param"><span class="n">sessionid</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#VerifySessionResource.session_active"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.VerifySessionResource.session_active" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.add_superuser">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">add_superuser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#add_superuser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.add_superuser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add superuser account to User table.</p>
+<p>Will remove any user account with the same name along with any associated session.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.alchemyencoder">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">alchemyencoder</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">obj</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#alchemyencoder"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.alchemyencoder" title="Permalink to this definition">¶</a></dt>
+<dd><p>A json encoder for SQLAlchemy declarative_base objects, date and Decimal objects.</p>
+<p><cite>Base</cite> objects are returned a <cite>dict</cite> object with a key for each column.
+A column with a name equal to <cite>password</cite> is _not_ included.
+If a Base object has a <cite>user</cite> column, an extra key <cite>email</cite> is added that contains <cite>user.email</cite>.</p>
+<p><cite>date</cite> objects are returned as an isoformat string.</p>
+<p><cite>Decimal</cite> objects are returned as a float.</p>
+<p># Arguments</p>
+<p>obj(object): an object to decode</p>
+<p># Returns</p>
+<p>A <cite>dict</cite>, <cite>str</cite>, <cite>float</cite> or <cite>None</cite>.</p>
+<p>Like all default encoders for json it returns objects which are then encoded to json strings by the main encoder.</p>
+<p># Example</p>
+<p><a href="#id1"><span class="problematic" id="id2">``</span></a>`
+import json</p>
+<p>jsonstring = json.dumps(someobject, default=alchemyencoder)
+<a href="#id3"><span class="problematic" id="id4">``</span></a><a href="#id5"><span class="problematic" id="id6">`</span></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.allowed_password">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">allowed_password</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">s</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#allowed_password"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.allowed_password" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if a password meets the complexity criteria:</p>
+<ul class="simple">
+<li><p>between 8 and 64 characters,</p></li>
+<li><p>contain at least 1 lowercase, 1 uppercase, 1 digit and 1 special character</p></li>
+<li><p>it may not contain characters outside those classes</p></li>
+<li><p>character classes <em>are</em> unicode aware</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.checkpassword">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">checkpassword</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">password</span></em>, <em class="sig-param"><span class="n">reference</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#checkpassword"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.checkpassword" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare a plaintext password to a hashed reference.</p>
+<p>The reference is a string of hex digits, the first 32 being the salt.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.fetch_admin_params">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">fetch_admin_params</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#fetch_admin_params"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.fetch_admin_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get admin variables from file or environment.</p>
+<p>enviroment variables overrule variables in files.</p>
+<p># Returns
+tuple(admin_user, admin_password)</p>
+<p># Module level attributes referenced</p>
+<ul class="simple">
+<li><p>ADMIN_USER_FILE: filename of file containing super user username (valid email address)</p></li>
+<li><p>ADMIN_USER: username (valid email address) of super user, will override ADMIN_USER_FILE</p></li>
+<li><p>ADMIN_PASSWORD_FILE: filename of file containing super user password in plaintext</p></li>
+<li><p>ADMIN_PASSWORD: super user password in plaintext, will override ADMIN_PASSWORD_FILE</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.get_sessionmaker">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">get_sessionmaker</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">connection</span></em>, <em class="sig-param"><span class="n">timeout</span></em>, <em class="sig-param"><span class="n">retries</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#get_sessionmaker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.get_sessionmaker" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="server.server.getfile">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">getfile</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">variable</span></em>, <em class="sig-param"><span class="n">defaultfilename</span></em>, <em class="sig-param"><span class="n">default</span><span class="o">=</span><span class="default_value">'Hi {name}, click {link}, Regards {website}'</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#getfile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.getfile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the contents of the file specified in the environment variable.</p>
+<p># Arguments</p>
+<p>variable(str):           the name of the environment variable
+defaultfilename(str):    the filename to use if the variable is not defined
+default(str):            the string to return if the file couldn’t be found</p>
+<p>the default contains the following placeholders that can be used in the actual files as well</p>
+<ul class="simple">
+<li><p>{name}    the full name of the user</p></li>
+<li><p>{link}    a confirmation link to click</p></li>
+<li><p>{website} the name of the application/website</p></li>
+</ul>
+<p># Returns</p>
+<p>A string.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.getvar">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">getvar</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">variable</span></em>, <em class="sig-param"><span class="n">default</span><span class="o">=</span><span class="default_value">'&lt;unknown&gt;'</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#getvar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.getvar" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the value of the environment variable.</p>
+<p># Arguments</p>
+<p>variable(str):    the name of the environment variable
+default(str):     the default value to return if variable is not defined</p>
+<p># Returns</p>
+<p>A string.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.max_body">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">max_body</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">limit</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#max_body"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.max_body" title="Permalink to this definition">¶</a></dt>
+<dd><p>A falcon before hook to limit size of request body.</p>
+<p># Arguments</p>
+<p>limit(int): maximum size in bytes of the request body.</p>
+<p># Raises</p>
+<p>falcon.HTTPPayloadTooLarge: when the body of the request exceeds <cite>limit</cite>.</p>
+<p># Returns</p>
+<p>a hook function.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.newpassword">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">newpassword</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">password</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#newpassword"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.newpassword" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a cryptographic hash of password as a string of hex digits.</p>
+<p>The password is salted with 16 random bytes.
+The salt is prepended as 32 hex digits to the returned hash.</p>
+<p># Arguments</p>
+<p>password(str):  the password to hash.</p>
+<p># Returns</p>
+<p>A string consisting of 32 + 64 hexadecimal characters.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.number">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">number</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">variable</span></em>, <em class="sig-param"><span class="n">default</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#number"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.number" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the integer in the environment variable.</p>
+<p># Arguments</p>
+<p>variable(str):    the name of the environment variable
+default(int):     the default value to return if variable is not defined</p>
+<p># Returns</p>
+<p>An integer value.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="server.server.set_sqlite_pragma">
+<code class="sig-prename descclassname">server.server.</code><code class="sig-name descname">set_sqlite_pragma</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dbapi_connection</span></em>, <em class="sig-param"><span class="n">connection_record</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/server/server.html#set_sqlite_pragma"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#server.server.set_sqlite_pragma" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-server">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-server" title="Permalink to this headline">¶</a></h2>
+<p>The server package implements an authentication server.</p>
+<p>It is a WSGI app implemented in falcon and exposes an app variable that can be called from any WSGI server, like gunicorn.</p>
+<p>A typical invocation is</p>
+<blockquote>
+<div><p>gunicorn -b 0.0.0.0:8005 server:app</p>
+</div></blockquote>
+<p>On import a sqlite database is initialized and logging is started.</p>
+<p>For more information see [the GitHub repo](<a class="reference external" href="https://github.com/varkenvarken/dockerplayground/tree/master/authserver">https://github.com/varkenvarken/dockerplayground/tree/master/authserver</a>)</p>
+<p>The following attributes will be initialized to the values defined in the corresponding environment variables</p>
+<p># Attributes</p>
+<p>DEBUGLEVEL: can be CRITICAL, ERROR, SUCCESS, INFO, DEBUG, TRACE. Defaults to DEBUG
+DATABASE_FILE: path to databse file, default to <a href="#id7"><span class="problematic" id="id8">`</span></a>user.db
+DATABASE_BACKOFF: number of seconds to ait between database connection retries, defaults to 1, doubles every retry.
+DATABASE_RETRIES: number of times to retry a database connection. Defaults to 3.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">src</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">server package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-server.server">server.server module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-server">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="smtp.html">smtp package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usercustomize.html">usercustomize module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to src’s documentation!</a></li>
+      <li>Next: <a href="smtp.html" title="next chapter">smtp package</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Michel Anders.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+      |
+      <a href="_sources/server.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

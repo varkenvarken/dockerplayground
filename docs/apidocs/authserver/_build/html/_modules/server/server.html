@@ -1,0 +1,1094 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>server.server &#8212; src  documentation</title>
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for server.server</h1><div class="highlight"><pre>
+<span></span><span class="c1">#  server.py, part of the authserver package</span>
+<span class="c1">#</span>
+<span class="c1">#  part of https://github.com/varkenvarken/dockerplayground</span>
+<span class="c1">#</span>
+<span class="c1">#  (c) 2020 Michel Anders (varkenvarken)</span>
+<span class="c1">#</span>
+<span class="c1">#  This program is free software; you can redistribute it and/or modify</span>
+<span class="c1">#  it under the terms of the GNU General Public License as published by</span>
+<span class="c1">#  the Free Software Foundation; either version 2 of the License, or</span>
+<span class="c1">#  (at your option) any later version.</span>
+<span class="c1">#</span>
+<span class="c1">#  This program is distributed in the hope that it will be useful,</span>
+<span class="c1">#  but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="c1">#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="c1">#  GNU General Public License for more details.</span>
+<span class="c1">#</span>
+<span class="c1">#  You should have received a copy of the GNU General Public License</span>
+<span class="c1">#  along with this program; if not, write to the Free Software</span>
+<span class="c1">#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,</span>
+<span class="c1">#  MA 02110-1301, USA.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module handles the http requests related to user and session management.</span>
+
+<span class="sd">It also provides utility functions to initialize the database and admin user.</span>
+
+<span class="sd">The attributes defined here contain values retrieved from their corresponding environment variables.</span>
+
+<span class="sd">Attributes:</span>
+
+<span class="sd">- DOMAIN e.g. yourdomain.org</span>
+<span class="sd">- APPLICATION e.g. /books</span>
+<span class="sd">- LOGINSCREEN e.g. /books/login.html</span>
+<span class="sd">- CONFIRMREGISTRATION e.g. https://server.yourdomain.org/auth/confirmregistration</span>
+<span class="sd">- RESETPASSWORD e.g. https://server.yourdomain.org/auth/resetpassword</span>
+<span class="sd">- WEBSITE e.g. Book Collection</span>
+<span class="sd">- SOFTTIMEOUT soft session limit in minutes, default 30</span>
+<span class="sd">- HARDTIMEOUT hard session limit in minutes, default 480</span>
+<span class="sd">- PWRESETTIMEOUT maximum number of minutes before a passwordreset must be confirmed, default 60</span>
+<span class="sd">- REGISTERTIMEOUT maximum number of minutes before a new registration must be confirmed, default 60</span>
+<span class="sd">- EMAILTEMPLATE_FORGOTPASSWORD file location of password reset email, default `mailtemplates/passwordreset.mail`</span>
+<span class="sd">- EMAILTEMPLATE_REGISTER file location of registration email, default `mailtemplates/registration.mail`</span>
+<span class="sd">- ADMIN_USER_FILE filename of file containing super user username (valid email address)</span>
+<span class="sd">- ADMIN_USER username (valid email address) of super user, will override ADMIN_USER_FILE</span>
+<span class="sd">- ADMIN_PASSWORD_FILE filename of file containing super user password in plaintext</span>
+<span class="sd">- ADMIN_PASSWORD super user password in plaintext, will override ADMIN_PASSWORD_FILE</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">usercustomize</span>
+
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">uuid</span> <span class="kn">import</span> <span class="n">uuid4</span> <span class="k">as</span> <span class="n">guid</span>
+<span class="kn">from</span> <span class="nn">hashlib</span> <span class="kn">import</span> <span class="n">pbkdf2_hmac</span>
+<span class="kn">from</span> <span class="nn">hmac</span> <span class="kn">import</span> <span class="n">compare_digest</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">urandom</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">smtp</span> <span class="kn">import</span> <span class="n">fetch_smtp_params</span><span class="p">,</span> <span class="n">mail</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+
+<span class="kn">import</span> <span class="nn">falcon</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.declarative</span> <span class="kn">import</span> <span class="n">declarative_base</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">event</span><span class="p">,</span> <span class="n">create_engine</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">,</span> <span class="n">Column</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">DateTime</span><span class="p">,</span> <span class="n">Boolean</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span><span class="p">,</span> <span class="n">sessionmaker</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.engine</span> <span class="kn">import</span> <span class="n">Engine</span>
+
+<span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
+
+<span class="kn">from</span> <span class="nn">regex</span> <span class="kn">import</span> <span class="nb">compile</span>  <span class="c1"># we use an alternative regular expression library here to support unicode classes like \p{L}</span>
+<span class="kn">from</span> <span class="nn">regex.regex</span> <span class="kn">import</span> <span class="n">Pattern</span>
+
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">usercustomize</span><span class="o">.</span><span class="n">coverage</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="number"><a class="viewcode-back" href="../../server.html#server.server.number">[docs]</a><span class="k">def</span> <span class="nf">number</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">default</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the integer in the environment variable.</span>
+
+<span class="sd">    # Arguments</span>
+
+<span class="sd">    variable(str):    the name of the environment variable</span>
+<span class="sd">    default(int):     the default value to return if variable is not defined</span>
+
+<span class="sd">    # Returns</span>
+
+<span class="sd">    An integer value.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">variable</span><span class="p">])</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">default</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="getvar"><a class="viewcode-back" href="../../server.html#server.server.getvar">[docs]</a><span class="k">def</span> <span class="nf">getvar</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;&lt;unknown&gt;&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the value of the environment variable.</span>
+
+<span class="sd">    # Arguments</span>
+
+<span class="sd">    variable(str):    the name of the environment variable</span>
+<span class="sd">    default(str):     the default value to return if variable is not defined</span>
+
+<span class="sd">    # Returns</span>
+
+<span class="sd">    A string.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">default</span></div>
+
+
+<div class="viewcode-block" id="getfile"><a class="viewcode-back" href="../../server.html#server.server.getfile">[docs]</a><span class="k">def</span> <span class="nf">getfile</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">defaultfilename</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;Hi </span><span class="si">{name}</span><span class="s1">, click </span><span class="si">{link}</span><span class="s1">, Regards </span><span class="si">{website}</span><span class="s1">&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the contents of the file specified in the environment variable.</span>
+
+<span class="sd">    # Arguments</span>
+
+<span class="sd">    variable(str):           the name of the environment variable</span>
+<span class="sd">    defaultfilename(str):    the filename to use if the variable is not defined</span>
+<span class="sd">    default(str):            the string to return if the file couldn&#39;t be found</span>
+
+<span class="sd">    the default contains the following placeholders that can be used in the actual files as well</span>
+
+<span class="sd">    - {name}    the full name of the user</span>
+<span class="sd">    - {link}    a confirmation link to click</span>
+<span class="sd">    - {website} the name of the application/website</span>
+
+<span class="sd">    # Returns</span>
+
+<span class="sd">    A string.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">defaultfilename</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">default</span>
+    <span class="k">if</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;could not open </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">default</span>
+    <span class="k">return</span> <span class="n">text</span></div>
+
+
+<span class="c1"># domain to be used in session cookie</span>
+<span class="n">DOMAIN</span>              <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;DOMAIN&#39;</span><span class="p">)</span>               <span class="c1"># e.g. yourdomain.org</span>
+<span class="c1"># redirect locations for successful logon</span>
+<span class="n">APPLICATION</span>         <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;APPLICATION&#39;</span><span class="p">)</span>          <span class="c1"># e.g. /books</span>
+<span class="n">LOGINSCREEN</span>         <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;LOGINSCREEN&#39;</span><span class="p">)</span>          <span class="c1"># e.g. /books/login.html</span>
+<span class="c1"># these get used in confirmation emails:</span>
+<span class="n">CONFIRMREGISTRATION</span> <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;CONFIRMREGISTRATION&#39;</span><span class="p">)</span>  <span class="c1"># e.g. https://server.yourdomain.org/auth/confirmregistration</span>
+<span class="n">RESETPASSWORD</span>       <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;RESETPASSWORD&#39;</span><span class="p">)</span>        <span class="c1"># e.g. https://server.yourdomain.org/auth/resetpassword</span>
+<span class="c1">#</span>
+<span class="n">WEBSITE</span>             <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;WEBSITE&#39;</span><span class="p">)</span>              <span class="c1"># e.g. Book Collection</span>
+
+<span class="c1"># session limits in minutes</span>
+<span class="n">SOFTTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;SOFTTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+<span class="n">HARDTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;HARDTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+<span class="c1"># confirmation limits in minutes</span>
+<span class="n">PWRESETTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;PWRESETTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">REGISTERTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;REGISTERTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+<span class="n">SESSIONID_pattern</span>   <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9a-f]</span><span class="si">{32}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">PASSWORD_lower</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[a-z]&quot;</span><span class="p">)</span>
+<span class="n">PASSWORD_upper</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[A-Z]&quot;</span><span class="p">)</span>
+<span class="n">PASSWORD_digit</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9]&quot;</span><span class="p">)</span>
+<span class="n">PASSWORD_special</span>    <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[ !|@#$%^&amp;*()\-_.,&lt;&gt;?/</span><span class="se">\\</span><span class="si">{}</span><span class="s2">\[\]]&quot;</span><span class="p">)</span>
+
+<span class="n">EMAILTEMPLATE_FORGOTPASSWORD</span> <span class="o">=</span> <span class="n">getfile</span><span class="p">(</span><span class="s1">&#39;EMAILTEMPLATE_FORGOTPASSWORD&#39;</span><span class="p">,</span> <span class="s1">&#39;mailtemplates/passwordreset.mail&#39;</span><span class="p">)</span>
+<span class="n">EMAILTEMPLATE_REGISTER</span> <span class="o">=</span> <span class="n">getfile</span><span class="p">(</span><span class="s1">&#39;EMAILTEMPLATE_REGISTER&#39;</span><span class="p">,</span> <span class="s1">&#39;mailtemplates/registration.mail&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="newpassword"><a class="viewcode-back" href="../../server.html#server.server.newpassword">[docs]</a><span class="k">def</span> <span class="nf">newpassword</span><span class="p">(</span><span class="n">password</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return a cryptographic hash of password as a string of hex digits.</span>
+
+<span class="sd">    The password is salted with 16 random bytes.</span>
+<span class="sd">    The salt is prepended as 32 hex digits to the returned hash.</span>
+
+<span class="sd">    # Arguments</span>
+
+<span class="sd">    password(str):  the password to hash.</span>
+
+<span class="sd">    # Returns</span>
+
+<span class="sd">    A string consisting of 32 + 64 hexadecimal characters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">salt</span> <span class="o">=</span> <span class="n">urandom</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+    <span class="n">dk</span> <span class="o">=</span> <span class="n">pbkdf2_hmac</span><span class="p">(</span><span class="s1">&#39;sha256&#39;</span><span class="p">,</span> <span class="n">password</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">salt</span><span class="p">,</span> <span class="mi">100000</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">salt</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span> <span class="o">+</span> <span class="n">dk</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="checkpassword"><a class="viewcode-back" href="../../server.html#server.server.checkpassword">[docs]</a><span class="k">def</span> <span class="nf">checkpassword</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="n">reference</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compare a plaintext password to a hashed reference.</span>
+
+<span class="sd">    The reference is a string of hex digits, the first 32 being the salt.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">salt</span> <span class="o">=</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">fromhex</span><span class="p">(</span><span class="n">reference</span><span class="p">[:</span><span class="mi">32</span><span class="p">])</span>
+    <span class="n">dk</span> <span class="o">=</span> <span class="n">pbkdf2_hmac</span><span class="p">(</span><span class="s1">&#39;sha256&#39;</span><span class="p">,</span> <span class="n">password</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">salt</span><span class="p">,</span> <span class="mi">100000</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">compare_digest</span><span class="p">(</span><span class="n">salt</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span> <span class="o">+</span> <span class="n">dk</span><span class="o">.</span><span class="n">hex</span><span class="p">(),</span> <span class="n">reference</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="allowed_password"><a class="viewcode-back" href="../../server.html#server.server.allowed_password">[docs]</a><span class="k">def</span> <span class="nf">allowed_password</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check if a password meets the complexity criteria:</span>
+
+<span class="sd">    - between 8 and 64 characters,</span>
+<span class="sd">    - contain at least 1 lowercase, 1 uppercase, 1 digit and 1 special character</span>
+<span class="sd">    - it may not contain characters outside those classes</span>
+<span class="sd">    - character classes *are* unicode aware</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">64</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">8</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">nlower</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">PASSWORD_lower</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+    <span class="n">nupper</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">PASSWORD_upper</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+    <span class="n">ndigit</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">PASSWORD_digit</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+    <span class="n">nspecial</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">PASSWORD_special</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">nlower</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">nupper</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ndigit</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">nspecial</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">nlower</span> <span class="o">+</span> <span class="n">nupper</span> <span class="o">+</span> <span class="n">ndigit</span> <span class="o">+</span> <span class="n">nspecial</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="ParameterSet"><a class="viewcode-back" href="../../server.html#server.server.ParameterSet">[docs]</a><span class="k">class</span> <span class="nc">ParameterSet</span><span class="p">:</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Defines allowable input parameters for a POST or GET request.</span>
+
+<span class="sd">    # Attributes</span>
+
+<span class="sd">    __init__(self, specs={}):   creates a ParameterSet instance based on a dictionary of parameters</span>
+<span class="sd">    check(self, params): verify that a dictionary of params conforms to the defined requirements</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">specs</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a ParameterSet instance based on a dictionary of parameters.</span>
+
+<span class="sd">        # Arguments</span>
+
+<span class="sd">        specs(dict): specifies a mapping name --&gt; (ex, maxlength)</span>
+
+<span class="sd">            `name` is a case sensitive name of an allowed input parameter</span>
+
+<span class="sd">            `ex` is either a string, a regular expression or a callable that specifies the validity of a value.</span>
+
+<span class="sd">            `maxlength` is an integer that specifies the maximum length of a parameter value</span>
+
+<span class="sd">            If `ex` is a string it is converted to a regular expression.</span>
+
+<span class="sd">            If `ex` is a callable it should return a boolean indicating the validity of a value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">specs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">specs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">r</span><span class="p">,</span> <span class="n">length</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="n">length</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span><span class="p">,</span> <span class="n">length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ParameterSet.check"><a class="viewcode-back" href="../../server.html#server.server.ParameterSet.check">[docs]</a>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return true if all params are all allowed.</span>
+
+<span class="sd">        # Arguments</span>
+
+<span class="sd">        params(dict): is a mapping name --&gt; value,  where name and value are strings</span>
+
+<span class="sd">            Each value should match the requirements specfied for &#39;name&#39;.</span>
+
+<span class="sd">            If `params` contains extra parameters or it is missing items it is considered invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;params </span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">:</span>  <span class="c1"># all input names should be present</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">r</span><span class="p">,</span> <span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">length</span><span class="p">:</span>  <span class="c1"># values that are too long are invalid</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;too long </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">Pattern</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">v</span><span class="p">)):</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;no match </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s1">  re:</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">pattern</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="kc">False</span>
+                <span class="k">elif</span> <span class="ow">not</span> <span class="n">r</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;not </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;keynames do not match: </span><span class="si">{</span><span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s1">, required </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div></div>
+
+
+<span class="n">Base</span> <span class="o">=</span> <span class="n">declarative_base</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="alchemyencoder"><a class="viewcode-back" href="../../server.html#server.server.alchemyencoder">[docs]</a><span class="k">def</span> <span class="nf">alchemyencoder</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A json encoder for SQLAlchemy declarative_base objects, date and Decimal objects.</span>
+
+<span class="sd">    `Base` objects are returned a `dict` object with a key for each column.</span>
+<span class="sd">    A column with a name equal to `password` is _not_ included.</span>
+<span class="sd">    If a Base object has a `user` column, an extra key `email` is added that contains `user.email`.</span>
+
+
+<span class="sd">    `date` objects are returned as an isoformat string.</span>
+
+<span class="sd">    `Decimal` objects are returned as a float.</span>
+
+<span class="sd">    # Arguments</span>
+
+<span class="sd">    obj(object): an object to decode</span>
+
+<span class="sd">    # Returns</span>
+
+<span class="sd">    A `dict`, `str`, `float` or `None`.</span>
+
+<span class="sd">    Like all default encoders for json it returns objects which are then encoded to json strings by the main encoder.</span>
+
+<span class="sd">    # Example</span>
+
+<span class="sd">    ```</span>
+<span class="sd">    import json</span>
+
+<span class="sd">    jsonstring = json.dumps(someobject, default=alchemyencoder)</span>
+<span class="sd">    ```</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Base</span><span class="p">):</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s1">&#39;password&#39;</span><span class="p">}</span>  <span class="c1"># passwords *never* leave the system, not even encrypted</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s1">&#39;user&#39;</span><span class="p">):</span>
+            <span class="n">d</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span>
+        <span class="k">return</span> <span class="n">d</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Decimal</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="User"><a class="viewcode-back" href="../../server.html#server.server.User">[docs]</a><span class="k">class</span> <span class="nc">User</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ORM representation of a User.</span>
+
+<span class="sd">    # Attributes</span>
+
+<span class="sd">    id(int): primary key</span>
+<span class="sd">    email(str): user name (a valid email address)</span>
+<span class="sd">    password(str): hashed password</span>
+<span class="sd">    name(str): full name</span>
+<span class="sd">    superuser(bool): role, true if superuser</span>
+<span class="sd">    created(datetime): timestamp</span>
+<span class="sd">    active(bool): true if user account is enabled</span>
+<span class="sd">    attempts(int): number of failed login attemtps</span>
+<span class="sd">    accessed(datetime): timestamp of last access</span>
+<span class="sd">    locked(datetime): timestamp of user lockout</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;user&#39;</span>
+    <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">email</span>       <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">password</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="n">name</span>        <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="n">superuser</span>   <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">active</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">attempts</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">accessed</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">locked</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="Session"><a class="viewcode-back" href="../../server.html#server.server.Session">[docs]</a><span class="k">class</span> <span class="nc">Session</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ORM representation of a Session.</span>
+
+<span class="sd">    # Attributes</span>
+
+<span class="sd">    id(str): primary key holds a guid</span>
+<span class="sd">    created(datetime): timestamp</span>
+<span class="sd">    softlimit(datetime): timestamp, session must show activity before this time to be renewed</span>
+<span class="sd">    hardlimit(datetime): timestamp, after this time the session will be removed regardless</span>
+<span class="sd">    userid(int): foreign key to User, on cascade delete is on</span>
+<span class="sd">    user: ORM link to User</span>
+
+
+<span class="sd">    This session will be deleted if the corresponding user is deleted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;session&#39;</span>
+    <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">34</span><span class="p">),</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># holds a guid</span>
+    <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">softlimit</span>   <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">hardlimit</span>   <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">userid</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;user.id&#39;</span><span class="p">,</span> <span class="n">ondelete</span><span class="o">=</span><span class="s1">&#39;CASCADE&#39;</span><span class="p">))</span>
+    <span class="n">user</span>        <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">User</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PendingUser"><a class="viewcode-back" href="../../server.html#server.server.PendingUser">[docs]</a><span class="k">class</span> <span class="nc">PendingUser</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ORM representation of a PendingUser (a newly registered user awaiting confirmation).</span>
+
+<span class="sd">    # Attributes</span>
+
+<span class="sd">    id(str): primary key holds a guid</span>
+<span class="sd">    email(str): user name (a valid email address)</span>
+<span class="sd">    password(str): hashed password</span>
+<span class="sd">    name(str): full name</span>
+<span class="sd">    created(datetime): timestamp</span>
+<span class="sd">    expires(datetime): timestamp, after this time the session will be removed regardless</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;pendinguser&#39;</span>
+    <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">34</span><span class="p">),</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># holds a guid</span>
+    <span class="n">email</span>       <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">name</span>        <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="n">password</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">expires</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="PasswordReset"><a class="viewcode-back" href="../../server.html#server.server.PasswordReset">[docs]</a><span class="k">class</span> <span class="nc">PasswordReset</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ORM representation of a PasswordReset event awaiting confirmation.</span>
+
+<span class="sd">    # Attributes</span>
+
+<span class="sd">    id(str): primary key holds a guid</span>
+<span class="sd">    created(datetime): timestamp</span>
+<span class="sd">    expires(datetime): timestamp, after this time the session will be removed regardless</span>
+<span class="sd">    userid(int): foreign key to User, on cascade delete is on</span>
+<span class="sd">    user: ORM link to User</span>
+
+
+<span class="sd">    This PasswordReset will be deleted if the corresponding user is deleted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;passwordreset&#39;</span>
+    <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">34</span><span class="p">),</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># holds a guid</span>
+    <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">expires</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">userid</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;user.id&#39;</span><span class="p">,</span> <span class="n">ondelete</span><span class="o">=</span><span class="s1">&#39;CASCADE&#39;</span><span class="p">))</span>
+    <span class="n">user</span>        <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">User</span><span class="p">)</span></div>
+
+
+<span class="n">verifysession_params</span>  <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({</span><span class="s1">&#39;sessionid&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9a-f]</span><span class="si">{32}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">34</span><span class="p">)})</span>
+<span class="n">logout_params</span>         <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({})</span>
+<span class="n">login_login_params</span>    <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({</span><span class="s1">&#39;login&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;Login&#39;</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">allowed_password</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="s1">&#39;email&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[^@]+@[^.]+\.[^.]+(\.[^.]+)*&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)})</span>
+<span class="n">login_register_params</span> <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({</span><span class="s1">&#39;login&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;Register&#39;</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[\p</span><span class="si">{L}</span><span class="s2">\p</span><span class="si">{M}</span><span class="s2">\p</span><span class="si">{N}</span><span class="s2">][\p</span><span class="si">{L}</span><span class="s2">\p</span><span class="si">{M}</span><span class="s2">\p</span><span class="si">{N}</span><span class="s2"> ]+&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span> <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">allowed_password</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="s1">&#39;password2&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">allowed_password</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="s1">&#39;email&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[^@]+@[^.]+\.[^.]+(\.[^.]+)*&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)})</span>
+<span class="n">login_forgot_params</span>   <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({</span><span class="s1">&#39;login&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;Forgot&#39;</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="s1">&#39;email&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[^@]+@[^.]+\.[^.]+(\.[^.]+)*&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)})</span>
+<span class="n">newpassword_params</span>    <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({</span><span class="s1">&#39;choose&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;Choose&#39;</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">allowed_password</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="s1">&#39;password2&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">allowed_password</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="s1">&#39;resetid&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9a-f]</span><span class="si">{32}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">34</span><span class="p">)})</span>
+<span class="n">stats_params</span>          <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">()</span>
+<span class="n">confirmation_params</span>   <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({</span><span class="s1">&#39;confirmationid&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9a-f]</span><span class="si">{32}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">34</span><span class="p">)})</span>
+
+
+<div class="viewcode-block" id="max_body"><a class="viewcode-back" href="../../server.html#server.server.max_body">[docs]</a><span class="k">def</span> <span class="nf">max_body</span><span class="p">(</span><span class="n">limit</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A falcon before hook to limit size of request body.</span>
+
+<span class="sd">    # Arguments</span>
+
+<span class="sd">    limit(int): maximum size in bytes of the request body.</span>
+
+<span class="sd">    # Raises</span>
+
+<span class="sd">    falcon.HTTPPayloadTooLarge: when the body of the request exceeds `limit`.</span>
+
+<span class="sd">    # Returns</span>
+
+<span class="sd">    a hook function.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">hook</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">content_length</span>
+        <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">length</span> <span class="o">&gt;</span> <span class="n">limit</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;The size of the request is too large. The body must not &#39;</span>
+                   <span class="s1">&#39;exceed &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39; bytes in length.&#39;</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTPPayloadTooLarge</span><span class="p">(</span>
+                <span class="s1">&#39;Request body is too large&#39;</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">hook</span></div>
+
+
+<div class="viewcode-block" id="LoginResource"><a class="viewcode-back" href="../../server.html#server.server.LoginResource">[docs]</a><span class="k">class</span> <span class="nc">LoginResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the action of a login form.</span>
+
+<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="LoginResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.LoginResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle a logon POST request.</span>
+
+<span class="sd">        # Arguments</span>
+<span class="sd">        req: the request</span>
+<span class="sd">        resp: the response</span>
+
+<span class="sd">        # Returns</span>
+<span class="sd">        None</span>
+
+<span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
+<span class="sd">        On success it will set the Location header to APPLICATION and return a session cookie.</span>
+<span class="sd">        On failure it will set the Location header to LOGINSCREEN.</span>
+<span class="sd">        It will always set the response status to falcon.HTTP_303.</span>
+
+<span class="sd">        # Parameters</span>
+
+<span class="sd">        - email: the username of the user (a valid email address)</span>
+<span class="sd">        - password: the password</span>
+<span class="sd">        - login: the literal text `Login`</span>
+
+<span class="sd">        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Login` attribute.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;LoginResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">login_login_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;unauthorized, params do not have a proper format&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">email</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">user</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;valid user found </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">checkpassword</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">],</span> <span class="n">user</span><span class="o">.</span><span class="n">password</span><span class="p">):</span>
+                    <span class="c1"># self.redirect_header(&quot;Login succeeded&quot;, APPLICATION)</span>
+                    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Session</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Session</span><span class="o">.</span><span class="n">userid</span> <span class="o">==</span> <span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">):</span>
+                        <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+                    <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+                    <span class="n">softlimit</span> <span class="o">=</span> <span class="n">now</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">SOFTTIMEOUT</span><span class="p">)</span>
+                    <span class="n">hardlimit</span> <span class="o">=</span> <span class="n">now</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">HARDTIMEOUT</span><span class="p">)</span>
+                    <span class="n">ns</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="n">userid</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">guid</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">,</span> <span class="n">created</span><span class="o">=</span><span class="n">now</span><span class="p">,</span> <span class="n">softlimit</span><span class="o">=</span><span class="n">softlimit</span><span class="p">,</span> <span class="n">hardlimit</span><span class="o">=</span><span class="n">hardlimit</span><span class="p">)</span>
+                    <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
+                    <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">set_cookie</span><span class="p">(</span><span class="s1">&#39;session&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="n">DOMAIN</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="n">http_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="c1"># falcon 3 supports samesite argument in set_cookie but falcon 2 doesn&#39;t</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">_cookies</span><span class="p">[</span><span class="s1">&#39;session&#39;</span><span class="p">][</span><span class="s1">&#39;samesite&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Lax&#39;</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;user succesfully authenticated </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_303</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">APPLICATION</span>
+                    <span class="k">return</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;user authentication failed for known user </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;user authentication failed for unknown user </span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_303</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s1">?failed&#39;</span></div></div>
+
+
+<div class="viewcode-block" id="RegisterResource"><a class="viewcode-back" href="../../server.html#server.server.RegisterResource">[docs]</a><span class="k">class</span> <span class="nc">RegisterResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the action of a registration form.</span>
+
+<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="RegisterResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.RegisterResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle a register POST request.</span>
+
+<span class="sd">        # Arguments</span>
+<span class="sd">        req: the request</span>
+<span class="sd">        resp: the response</span>
+
+<span class="sd">        # Returns</span>
+<span class="sd">        None</span>
+
+<span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
+<span class="sd">        On success it will create a pending user request and send an email with a confirmation link.</span>
+<span class="sd">        On failure it will do nothing.</span>
+<span class="sd">        It will always set the Location header to LOGINSCREEN.</span>
+<span class="sd">        It will always set the response status to falcon.HTTP_303.</span>
+
+<span class="sd">        # Parameters</span>
+
+<span class="sd">        - email: the username of the user (a valid email address)</span>
+<span class="sd">        - name: the full name of the user</span>
+<span class="sd">        - password: the password ( 8 &gt;= length &lt;= 64, must contain at lease 1 lowercase, 1 uppercase, 1 digit and 1 special char.</span>
+<span class="sd">        - password2: must be identical to the password parameter</span>
+<span class="sd">        - login: the literal text `Register`</span>
+
+<span class="sd">        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Register` attribute.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;RegisterResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;303 Registration pending confirmation, email sent to email address&quot;</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s2">?pending&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">login_register_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;unauthorized, login register params do not have proper format&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span>
+            <span class="c1"># TODO lowercase email everywhere</span>
+            <span class="n">email</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+            <span class="c1"># We always return the same response (and redirect) no matter</span>
+            <span class="c1"># whether the email is in use or not or if anything else is wrong</span>
+            <span class="c1"># this is to prevent indexing, i.e. checking which email addresses are in use</span>
+            <span class="k">if</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;password2&#39;</span><span class="p">]:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;passwords are not identical&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">user</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;email already in use </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">PendingUser</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">PendingUser</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">user</span><span class="p">:</span>  <span class="c1"># we delete previous pending registration to prevent database overfilling</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;previous registration not yet confirmed&#39;</span><span class="p">)</span>
+                    <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+                    <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;first registration&#39;</span><span class="p">)</span>
+                <span class="n">pu</span> <span class="o">=</span> <span class="n">PendingUser</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">guid</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="n">email</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">newpassword</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]),</span> <span class="n">name</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">])</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">pu</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="c1"># TODO limit number of emails sent to same address</span>
+                <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">PendingUser</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">PendingUser</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sending confirmation mail to </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;confirmation id: </span><span class="si">{</span><span class="n">pu</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">fetch_smtp_params</span><span class="p">()</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;mailer </span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2"> (password not shown ...)&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">mail</span><span class="p">(</span><span class="n">EMAILTEMPLATE_REGISTER</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">website</span><span class="o">=</span><span class="n">WEBSITE</span><span class="p">,</span> <span class="n">link</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">CONFIRMREGISTRATION</span><span class="si">}</span><span class="s2">?confirmationid=</span><span class="si">{</span><span class="n">pu</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span> <span class="s2">&quot;Confirm your registration&quot;</span><span class="p">,</span> <span class="n">fromaddr</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">toaddr</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="p">,</span> <span class="n">smtp</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">p</span><span class="p">):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s1">&#39;mail successfully sent&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;mail not sent&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ForgotPasswordResource"><a class="viewcode-back" href="../../server.html#server.server.ForgotPasswordResource">[docs]</a><span class="k">class</span> <span class="nc">ForgotPasswordResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the action of a forgot password form.</span>
+
+<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ForgotPasswordResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.ForgotPasswordResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle a forgotpassword POST request.</span>
+
+<span class="sd">        # Arguments</span>
+<span class="sd">        req: the request</span>
+<span class="sd">        resp: the response</span>
+
+<span class="sd">        # Returns</span>
+<span class="sd">        None</span>
+
+<span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
+<span class="sd">        On success it will create a password reset request and send an email with a confirmation link.</span>
+<span class="sd">        On failure it will do nothing.</span>
+<span class="sd">        It will always set the Location header to LOGINSCREEN.</span>
+<span class="sd">        It will always set the response status to falcon.HTTP_303.</span>
+
+<span class="sd">        # Parameters</span>
+
+<span class="sd">        - email: the username of the user (a valid email address)</span>
+<span class="sd">        - login: the literal text `Forgot`</span>
+
+<span class="sd">        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Forgot` attribute.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ForgotPasswordResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="c1"># we always send the same response, no matter if the user exists or not</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_303</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s2">?checkemail&quot;</span>
+
+        <span class="n">params</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">login_forgot_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;unauthorized, login forgot params do not have proper format&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">email</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+
+            <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">user</span><span class="p">:</span>  <span class="c1"># no user found but we are not providing this information</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;no user found </span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;password reset request received for existing user </span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">pr</span> <span class="o">=</span> <span class="n">PasswordReset</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">guid</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">,</span> <span class="n">userid</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">pr</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sending confirmation mail to </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;reset confirmation id: </span><span class="si">{</span><span class="n">pr</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">fetch_smtp_params</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">mail</span><span class="p">(</span><span class="n">EMAILTEMPLATE_FORGOTPASSWORD</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">website</span><span class="o">=</span><span class="n">WEBSITE</span><span class="p">,</span> <span class="n">link</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">RESETPASSWORD</span><span class="si">}</span><span class="s2">?confirmationid=</span><span class="si">{</span><span class="n">pr</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span> <span class="s2">&quot;Password change request&quot;</span><span class="p">,</span> <span class="n">fromaddr</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">toaddr</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="p">,</span> <span class="n">smtp</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">p</span><span class="p">):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s1">&#39;mail successfully sent&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;mail not sent&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="VerifySessionResource"><a class="viewcode-back" href="../../server.html#server.server.VerifySessionResource">[docs]</a><span class="k">class</span> <span class="nc">VerifySessionResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves as the internal endpoint to verify the existence of a valid session.</span>
+
+<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="VerifySessionResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.VerifySessionResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle a verifysession POST request.</span>
+
+<span class="sd">        # Arguments</span>
+<span class="sd">        req: the request</span>
+<span class="sd">        resp: the response</span>
+
+<span class="sd">        # Returns</span>
+<span class="sd">        On success the body will contain the following key=value pairs separated by newline characters</span>
+
+<span class="sd">        - email(str)</span>
+<span class="sd">        - id(int)</span>
+<span class="sd">        - name(str)</span>
+<span class="sd">        - superuser(book)</span>
+
+<span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
+<span class="sd">        On success it will the session data and set the response status to falcon.HTTP_200.</span>
+<span class="sd">        On failure it will do nothing and return a response status of falcon.HTTP_404.</span>
+
+<span class="sd">        # Request parameters</span>
+
+<span class="sd">        - email: the username of the user (a valid email address)</span>
+<span class="sd">        - login: the literal text `Forgot`</span>
+
+<span class="sd">        This method should not be called from the browser. It is typically called by other backend servers to verify</span>
+<span class="sd">        the validity of a session and get the email address, name and superuser status of that session.</span>
+
+<span class="sd">        It does not accept request that have an `X-Forwarded-Host` header defined, so if the authserver and the backend</span>
+<span class="sd">        server are positioned behind a reverse proxy that adds these headers (like traefik) all things be fine.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;VerifySessionResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_404</span>
+        <span class="c1"># we only allow sessions to be verified by apps running on the same</span>
+        <span class="c1"># network, i.e. they should not have any X- headers present</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">h</span> <span class="o">:=</span> <span class="n">req</span><span class="o">.</span><span class="n">get_header</span><span class="p">(</span><span class="s1">&#39;X-Forwarded-Host&#39;</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;unauthorized, verifysession called from outside </span><span class="si">{</span><span class="n">h</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="c1"># verify that incoming parameters are what we expect</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">verifysession_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;unauthorized, sessionid does not have proper format&#39;</span><span class="p">)</span>
+        <span class="c1"># if the session is known, compose the response with user data</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">info</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_active</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;sessionid&#39;</span><span class="p">]))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="n">info</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_200</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unauthorized, no valid session found: </span><span class="si">{</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;sessionid&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># clean up stale sessions</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Session</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Session</span><span class="o">.</span><span class="n">hardlimit</span> <span class="o">&lt;=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;deleting session </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s1"> for </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="VerifySessionResource.session_active"><a class="viewcode-back" href="../../server.html#server.server.VerifySessionResource.session_active">[docs]</a>    <span class="k">def</span> <span class="nf">session_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">sessionid</span><span class="p">):</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Session</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Session</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">sessionid</span><span class="p">,</span> <span class="n">now</span> <span class="o">&lt;</span> <span class="n">Session</span><span class="o">.</span><span class="n">hardlimit</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">now</span> <span class="o">&lt;</span> <span class="n">s</span><span class="o">.</span><span class="n">softlimit</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;active session found: </span><span class="si">{</span><span class="n">sessionid</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;email=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1"> id=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s1"> name=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1"> superuser=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">superuser</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">softlimit</span> <span class="o">=</span> <span class="n">now</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">SOFTTIMEOUT</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">softlimit</span><span class="p">)</span>
+                <span class="k">return</span> <span class="nb">bytes</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;email=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="se">\n</span><span class="s1">id=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="se">\n</span><span class="s1">name=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="se">\n</span><span class="s1">superuser=</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">superuser</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+
+
+<div class="viewcode-block" id="LogoutResource"><a class="viewcode-back" href="../../server.html#server.server.LogoutResource">[docs]</a><span class="k">class</span> <span class="nc">LogoutResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the action of a logout form.</span>
+
+<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="LogoutResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.LogoutResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;LogoutResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_404</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">LOGINSCREEN</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">logout_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;bad request: logout request should not have parameters&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cv</span> <span class="o">:=</span> <span class="n">req</span><span class="o">.</span><span class="n">get_cookie_values</span><span class="p">(</span><span class="s1">&#39;session&#39;</span><span class="p">):</span>
+            <span class="n">cookie</span> <span class="o">=</span> <span class="n">cv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">cookie</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Session</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Session</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">cookie</span><span class="p">):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;deleting session </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> for user </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;logout authorized for user </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_303</span>
+            <span class="k">return</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;logout unauthorized, session not found or no session cookie present&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ChoosePasswordResource"><a class="viewcode-back" href="../../server.html#server.server.ChoosePasswordResource">[docs]</a><span class="k">class</span> <span class="nc">ChoosePasswordResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the action of a choose new password form.</span>
+
+<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ChoosePasswordResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.ChoosePasswordResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ChoosePasswordResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_404</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">LOGINSCREEN</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">newpassword_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;bad request: malformed parameters&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span>
+            <span class="k">if</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;password2&#39;</span><span class="p">]:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;passwords are not identical&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">resetuser</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">PasswordReset</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">PasswordReset</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;resetid&#39;</span><span class="p">]):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;password reset for user </span><span class="si">{</span><span class="n">resetuser</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">user</span> <span class="o">=</span> <span class="n">resetuser</span><span class="o">.</span><span class="n">user</span>
+                    <span class="n">user</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">newpassword</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">])</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_303</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s2">?resetsuccessful&quot;</span>
+                    <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">resetuser</span><span class="p">)</span>
+                    <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                    <span class="k">return</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;resetid not found or expired&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="StatsResource"><a class="viewcode-back" href="../../server.html#server.server.StatsResource">[docs]</a><span class="k">class</span> <span class="nc">StatsResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the REST endpoint for user information overviews.</span>
+
+<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="StatsResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.StatsResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;StatsResource&#39;</span><span class="p">)</span>
+        <span class="n">itemmap</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;users&#39;</span><span class="p">:</span> <span class="n">User</span><span class="p">,</span> <span class="s1">&#39;sessions&#39;</span><span class="p">:</span> <span class="n">Session</span><span class="p">,</span> <span class="s1">&#39;pendingusers&#39;</span><span class="p">:</span> <span class="n">PendingUser</span><span class="p">,</span> <span class="s1">&#39;passwordresets&#39;</span><span class="p">:</span> <span class="n">PasswordReset</span><span class="p">}</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_404</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">LOGINSCREEN</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stats_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="ow">or</span> <span class="n">item</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">itemmap</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;unauthorized, stats params do not have proper format&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cv</span> <span class="o">:=</span> <span class="n">req</span><span class="o">.</span><span class="n">get_cookie_values</span><span class="p">(</span><span class="s1">&#39;session&#39;</span><span class="p">):</span>
+            <span class="n">cookie</span> <span class="o">=</span> <span class="n">cv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">cookie</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Session</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Session</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">cookie</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">superuser</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;/stats/</span><span class="si">{</span><span class="n">item</span><span class="si">}</span><span class="s1"> authorized for user </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_200</span>
+                    <span class="n">ob</span> <span class="o">=</span> <span class="n">itemmap</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+                    <span class="n">users</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">([</span><span class="n">u</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ob</span><span class="p">)],</span> <span class="n">default</span><span class="o">=</span><span class="n">alchemyencoder</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">users</span><span class="p">)</span>
+                    <span class="n">resp</span><span class="o">.</span><span class="n">body</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">{{</span><span class="s1">&quot;data&quot;: </span><span class="si">{</span><span class="n">users</span><span class="si">}</span><span class="se">}}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;unauthorized, </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1"> (s.user.name) is not a superuser (</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">superuser</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unauthorized, no valid session found: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cookie</span><span class="p">[</span><span class="s1">&#39;session&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;unauthorized, no session cookie provided&#39;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ConfirmRegistrationResource"><a class="viewcode-back" href="../../server.html#server.server.ConfirmRegistrationResource">[docs]</a><span class="k">class</span> <span class="nc">ConfirmRegistrationResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the registration confirmation link.</span>
+
+<span class="sd">    This resource only defines an `on_get()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ConfirmRegistrationResource.on_get"><a class="viewcode-back" href="../../server.html#server.server.ConfirmRegistrationResource.on_get">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ConfirmRegistrationResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_404</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">LOGINSCREEN</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">confirmation_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;confirmregistration parameters not ok&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># TODO check for expiration and remove expired entries</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_303</span>
+            <span class="n">confirmationid</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;confirmationid&#39;</span><span class="p">]</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">PendingUser</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">PendingUser</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">confirmationid</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">user</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;confirmregistration succeeded for </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                <span class="c1"># copy user to User table</span>
+                <span class="n">ns</span> <span class="o">=</span> <span class="n">User</span><span class="p">(</span><span class="n">email</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">password</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="c1"># redirect to login page</span>
+                <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s2">?confirmed&quot;</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># no pending confirmation or expired, redirect to login page</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;confirmregistration link expired or not present </span><span class="si">{</span><span class="n">confirmationid</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s2">?expired&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="ConfirmForgotPasswordResource"><a class="viewcode-back" href="../../server.html#server.server.ConfirmForgotPasswordResource">[docs]</a><span class="k">class</span> <span class="nc">ConfirmForgotPasswordResource</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Routing endpoint that serves the password reset confirmation link.</span>
+
+<span class="sd">    This resource only defines an `on_get()` method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ConfirmForgotPasswordResource.on_get"><a class="viewcode-back" href="../../server.html#server.server.ConfirmForgotPasswordResource.on_get">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ConfirmForgotPasswordResource&#39;</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">DBSession</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_404</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">LOGINSCREEN</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">confirmation_params</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;resetpassword parameters not ok&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">HTTP_303</span>
+            <span class="n">confirmationid</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;confirmationid&#39;</span><span class="p">]</span>
+            <span class="c1"># TODO remove PasswordReset after successful confirm</span>
+            <span class="k">if</span> <span class="n">pr</span> <span class="o">:=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">PasswordReset</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">PasswordReset</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">confirmationid</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s1">&#39;resetpassword confirmation successful&#39;</span><span class="p">)</span>
+                <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s2">?choosepassword=</span><span class="si">{</span><span class="n">pr</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># no pending confirmation or expired, redirect to login page</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;resetpassword link not present or expired&#39;</span><span class="p">)</span>
+                <span class="n">resp</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGINSCREEN</span><span class="si">}</span><span class="s2">?expired&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="fetch_admin_params"><a class="viewcode-back" href="../../server.html#server.server.fetch_admin_params">[docs]</a><span class="k">def</span> <span class="nf">fetch_admin_params</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get admin variables from file or environment.</span>
+
+<span class="sd">    enviroment variables overrule variables in files.</span>
+
+<span class="sd">    # Returns</span>
+<span class="sd">    tuple(admin_user, admin_password)</span>
+
+<span class="sd">    # Module level attributes referenced</span>
+
+<span class="sd">    - ADMIN_USER_FILE: filename of file containing super user username (valid email address)</span>
+<span class="sd">    - ADMIN_USER: username (valid email address) of super user, will override ADMIN_USER_FILE</span>
+<span class="sd">    - ADMIN_PASSWORD_FILE: filename of file containing super user password in plaintext</span>
+<span class="sd">    - ADMIN_PASSWORD: super user password in plaintext, will override ADMIN_PASSWORD_FILE</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;ADMIN_USER&#39;</span><span class="p">,</span> <span class="s1">&#39;ADMIN_PASSWORD&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+            <span class="n">env</span><span class="p">[</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">var</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">varf</span> <span class="o">=</span> <span class="n">var</span> <span class="o">+</span> <span class="s1">&#39;_FILE&#39;</span>
+            <span class="k">if</span> <span class="n">varf</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">varf</span><span class="p">])</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">env</span><span class="p">[</span><span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s1"> and </span><span class="si">{</span><span class="n">varf</span><span class="si">}</span><span class="s1"> not defined in environment&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">env</span><span class="p">[</span><span class="s1">&#39;ADMIN_USER&#39;</span><span class="p">],</span> <span class="n">env</span><span class="p">[</span><span class="s1">&#39;ADMIN_PASSWORD&#39;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="add_superuser"><a class="viewcode-back" href="../../server.html#server.server.add_superuser">[docs]</a><span class="k">def</span> <span class="nf">add_superuser</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add superuser account to User table.</span>
+
+<span class="sd">    Will remove any user account with the same name along with any associated session.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">DBSession</span>
+    <span class="n">username</span><span class="p">,</span> <span class="n">password</span> <span class="o">=</span> <span class="n">fetch_admin_params</span><span class="p">()</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">username</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;deleting user </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+    <span class="n">ns</span> <span class="o">=</span> <span class="n">User</span><span class="p">(</span><span class="n">email</span><span class="o">=</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">newpassword</span><span class="p">(</span><span class="n">password</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Administrator&#39;</span><span class="p">,</span> <span class="n">superuser</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;adding admin user </span><span class="si">{</span><span class="n">ns</span><span class="o">.</span><span class="n">email</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Session</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">created</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">userid</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<span class="c1"># https://docs.sqlalchemy.org/en/13/dialects/sqlite.html#foreign-key-support</span>
+<div class="viewcode-block" id="set_sqlite_pragma"><a class="viewcode-back" href="../../server.html#server.server.set_sqlite_pragma">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Engine</span><span class="p">,</span> <span class="s2">&quot;connect&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">set_sqlite_pragma</span><span class="p">(</span><span class="n">dbapi_connection</span><span class="p">,</span> <span class="n">connection_record</span><span class="p">):</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">dbapi_connection</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA foreign_keys=ON&quot;</span><span class="p">)</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="get_sessionmaker"><a class="viewcode-back" href="../../server.html#server.server.get_sessionmaker">[docs]</a><span class="k">def</span> <span class="nf">get_sessionmaker</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">timeout</span><span class="p">,</span> <span class="n">retries</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">DBSession</span>
+    <span class="c1"># this does not open a connection (yet), that will happen on create_all</span>
+    <span class="n">db_engine</span> <span class="o">=</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">pool_pre_ping</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># we try to connect to the database several times</span>
+    <span class="n">waited</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">retries</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="n">db_engine</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database connection refused trial </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">retries</span><span class="si">}</span><span class="s2">, now waiting </span><span class="si">{</span><span class="n">timeout</span><span class="si">}</span><span class="s2"> seconds ...&quot;</span><span class="p">)</span>
+            <span class="n">sleep</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
+            <span class="n">waited</span> <span class="o">+=</span> <span class="n">timeout</span>
+            <span class="n">timeout</span> <span class="o">*=</span> <span class="mi">2</span>
+            <span class="k">continue</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No database connections after </span><span class="si">{</span><span class="n">retries</span><span class="si">}</span><span class="s2"> tries (</span><span class="si">{</span><span class="n">waited</span><span class="si">}</span><span class="s2"> seconds)&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">DBSession</span> <span class="o">=</span> <span class="n">sessionmaker</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="n">db_engine</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">src</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../server.html">server package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../smtp.html">smtp package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usercustomize.html">usercustomize module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Michel Anders.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

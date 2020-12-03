@@ -29,5 +29,8 @@ clean: down
 testauthserver:
 	(cd authserver; ./test_authserver)
 
-.PHONY: authserver objectstore crawler frontend testauthserver
+docs:
+	(cd docs/apidocs/authserver; make html)
+
+.PHONY: authserver objectstore crawler frontend testauthserver docs
 

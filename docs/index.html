@@ -8,7 +8,7 @@
 <script src="highlight/highlight.pack.js"></script>
 <script>hljs.initHighlightingOnLoad();</script>
 <body>
-    
+
 <div class="w3-sidebar w3-bar-block w3-collapse w3-card w3-animate-right w3-xxlarge" style="width:200px;right:0;" id="mySidebar">
   <button class="w3-bar-item w3-button w3-large w3-hide-large w3-xxlarge my-hover-purple fas fa-times" onclick="w3_close()"> </button>
   <a href="https://varkenvarken.github.io/dockerplayground/" class="w3-bar-item w3-button my-hover-purple fas fa-home"><span class="tooltiptext">Home page</span></a>
@@ -27,11 +27,12 @@
 </div>
 
 <div class="w3-container">
-	<h2>Articles documenting the implementation</h2>
-	<ul class="alist"><!-- options are inprogress todo and done -->
-	<li class="icon todo"><a href="Introduction.html">Project outline</a></li>
-	</ul>
-	<div class="bumper"></div>
+    <h2>Articles documenting the implementation</h2>
+    <ul class="alist"><!-- options are inprogress todo and done -->
+    <li class="icon todo"><a href="Introduction.html">Project outline</a></li>
+    <li class="icon inprogress"><a href="apidocs/authserver/_build/html/index.html">API docs Authserver package</a></li>
+    </ul>
+    <div class="bumper"></div>
 </div>
 
 </div>
@@ -58,6 +59,6 @@ function w3_close() {
   document.getElementById("mySidebar").style.display = "none";
 }
 </script>
-   
+
 </body>
 </html>
