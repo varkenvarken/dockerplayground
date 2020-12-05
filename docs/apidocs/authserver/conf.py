@@ -10,14 +10,13 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
 import sys
 sys.path.insert(0, '/home/michel/dockerplayground/authserver/src')
 sys.path.append('/home/michel/.local/lib/python3.8/site-packages')
 
 # -- Project information -----------------------------------------------------
 
-project = 'src'
+project = 'Authserver'
 copyright = '2020, Michel Anders'
 author = 'Michel Anders'
 
@@ -57,15 +56,37 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 #
 html_theme = 'alabaster'
 
+html_theme_options = {
+    # 'logo': 'logo.png',
+    'font_family': 'Vollkorn, serif',
+    # 'font_size': Font size of body text.
+    'head_font_family': 'Nobile, serif',
+    'fixed_sidebar': True
+}
+
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-
-
+html_sidebars = {
+    '**': [
+        'about.html',
+        'navigation.html',
+        'relations.html',
+        'searchbox.html',
+    ]
+}
 # -- Extension configuration -------------------------------------------------
 
 # -- Options for todo extension ----------------------------------------------
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
+
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'special-members': '__init__',
+    'undoc-members': True,
+    'exclude-members': '__weakref__'
+}

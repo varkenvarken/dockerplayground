@@ -58,7 +58,7 @@ trap clean_up EXIT
 echo starting the server
 rm -f $DATABASE_FILE $SESSION $RESPONSE
 
-PYTHONPATH=src gunicorn -b 0.0.0.0:$PORT server:app > $SERVERLOG 2>&1 &
+PYTHONPATH=src gunicorn -b 0.0.0.0:$PORT "server:create_app()" --reuse-port  > $SERVERLOG 2>&1 &
 sleep 2
 
 unset COVERAGE_PROCESS_START

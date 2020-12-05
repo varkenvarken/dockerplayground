@@ -20,26 +20,27 @@
 #  MA 02110-1301, USA.
 
 """
-The server package implements an authentication server.
+The server module implements an authentication server.
 
 It is a WSGI app implemented in falcon and exposes an app variable that can be called from any WSGI server, like gunicorn.
 
-A typical invocation is
+A typical invocation is::
 
-    gunicorn -b 0.0.0.0:8005 server:app
+
+    gunicorn -b 0.0.0.0:8005 server:create_app()
+
 
 On import a sqlite database is initialized and logging is started.
 
-For more information see [the GitHub repo](https://github.com/varkenvarken/dockerplayground/tree/master/authserver)
+For more information see `the GitHub repo <https://github.com/varkenvarken/dockerplayground/tree/master/authserver>`_
 
 The following attributes will be initialized to the values defined in the corresponding environment variables
 
-# Attributes
-
-DEBUGLEVEL: can be CRITICAL, ERROR, SUCCESS, INFO, DEBUG, TRACE. Defaults to DEBUG
-DATABASE_FILE: path to databse file, default to `user.db
-DATABASE_BACKOFF: number of seconds to ait between database connection retries, defaults to 1, doubles every retry.
-DATABASE_RETRIES: number of times to retry a database connection. Defaults to 3.
+Attributes:
+    DEBUGLEVEL: can be CRITICAL, ERROR, SUCCESS, INFO, DEBUG, TRACE. Defaults to DEBUG
+    DATABASE_FILE: path to database file, default to `user.db`
+    DATABASE_BACKOFF: number of seconds to wait between database connection retries, defaults to 1, doubles every retry.
+    DATABASE_RETRIES: number of times to retry a database connection. Defaults to 3.
 """
 
 from os import environ
@@ -56,28 +57,39 @@ DATABASE_FILE    = environ['DATABASE_FILE'] if 'DATABASE_FILE' in environ else '
 DATABASE_BACKOFF = int(environ['DATABASE_BACKOFF']) if 'DATABASE_BACKOFF' in environ else 1
 DATABASE_RETRIES = int(environ['DATABASE_RETRIES']) if 'DATABASE_RETRIES' in environ else 3
 
-app = None
 
-# open the sqlite database and initialize a SQLAlchemy sessionmaker
-if get_sessionmaker(f"sqlite:///{DATABASE_FILE}", DATABASE_BACKOFF, DATABASE_RETRIES):
-    # make sure the superuser is present in the database
-    if add_superuser():
-        # initialize the falcon WSGI application
-        app = falcon.API()
-        # a parameters in form-urlencoded bodies will be added to the request params (just like query params)
-        app.req_options.auto_parse_form_urlencoded = True
-        app.add_route('/login',                 LoginResource())
-        app.add_route('/logout',                LogoutResource())
-        app.add_route('/verifysession',         VerifySessionResource())
-        app.add_route('/register',              RegisterResource())
-        app.add_route('/confirmregistration',   ConfirmRegistrationResource())
-        app.add_route('/forgotpassword',        ForgotPasswordResource())
-        app.add_route('/confirmforgotpassword', ConfirmForgotPasswordResource())
-        app.add_route('/choosepassword',        ChoosePasswordResource())
-        app.add_route('/stats/{item}',          StatsResource())
-        # TODO add change password functionality
-        logger.success('falcon app initialized')
+def create_app():
+    """
+    An WSGI app factory.
+
+    Returns:
+        :class:`falcon.API`
+
+    When the app is created, a SQLAlchemy/sqlite database is initialized with :func:`.server.get_sessionmaker`.
+
+    The initialization will also create an admin user with :func:`.server.add_superuser`.
+    """
+    # open the sqlite database and initialize a SQLAlchemy sessionmaker
+    if get_sessionmaker(f"sqlite:///{DATABASE_FILE}", DATABASE_BACKOFF, DATABASE_RETRIES):
+        # make sure the superuser is present in the database
+        if add_superuser():
+            # initialize the falcon WSGI application
+            app = falcon.API()
+            # a parameters in form-urlencoded bodies will be added to the request params (just like query params)
+            app.req_options.auto_parse_form_urlencoded = True
+            app.add_route('/login',                 LoginResource())
+            app.add_route('/logout',                LogoutResource())
+            app.add_route('/verifysession',         VerifySessionResource())
+            app.add_route('/register',              RegisterResource())
+            app.add_route('/confirmregistration',   ConfirmRegistrationResource())
+            app.add_route('/forgotpassword',        ForgotPasswordResource())
+            app.add_route('/confirmforgotpassword', ConfirmForgotPasswordResource())
+            app.add_route('/choosepassword',        ChoosePasswordResource())
+            app.add_route('/stats/{item}',          StatsResource())
+            # TODO add change password functionality
+            logger.success('falcon app initialized')
+            return app
+        else:
+            logger.critical("could not initialize falcon app")
     else:
-        logger.critical("could not initialize falcon app")
-else:
-    logger.critical(f"could not start database {environ['DATABASE_FILE']}")
+        logger.critical(f"could not start database {environ['DATABASE_FILE']}")

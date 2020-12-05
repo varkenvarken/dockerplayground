@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>server.server &#8212; src  documentation</title>
+    <title>server.server &#8212; Authserver  documentation</title>
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
     <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
@@ -21,9 +21,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
-  
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Authserver</a></h1>
 
-    <div class="document">
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../server.html">server package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../smtp.html">smtp package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usercustomize.html">usercustomize module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  <li><a href="../server.html">server</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
       <div class="documentwrapper">
         <div class="bodywrapper">
           <div class="body" role="main">
@@ -54,26 +95,32 @@
 
 <span class="sd">It also provides utility functions to initialize the database and admin user.</span>
 
-<span class="sd">The attributes defined here contain values retrieved from their corresponding environment variables.</span>
+<span class="sd">The attributes listed below configure the authserver and are initialized from</span>
+<span class="sd">environment variables with the same name.</span>
+
+<span class="sd">Additional attributes are defined at the package level (in :mod:`server`) and in :mod:`.smtp` .</span>
 
 <span class="sd">Attributes:</span>
 
-<span class="sd">- DOMAIN e.g. yourdomain.org</span>
-<span class="sd">- APPLICATION e.g. /books</span>
-<span class="sd">- LOGINSCREEN e.g. /books/login.html</span>
-<span class="sd">- CONFIRMREGISTRATION e.g. https://server.yourdomain.org/auth/confirmregistration</span>
-<span class="sd">- RESETPASSWORD e.g. https://server.yourdomain.org/auth/resetpassword</span>
-<span class="sd">- WEBSITE e.g. Book Collection</span>
-<span class="sd">- SOFTTIMEOUT soft session limit in minutes, default 30</span>
-<span class="sd">- HARDTIMEOUT hard session limit in minutes, default 480</span>
-<span class="sd">- PWRESETTIMEOUT maximum number of minutes before a passwordreset must be confirmed, default 60</span>
-<span class="sd">- REGISTERTIMEOUT maximum number of minutes before a new registration must be confirmed, default 60</span>
-<span class="sd">- EMAILTEMPLATE_FORGOTPASSWORD file location of password reset email, default `mailtemplates/passwordreset.mail`</span>
-<span class="sd">- EMAILTEMPLATE_REGISTER file location of registration email, default `mailtemplates/registration.mail`</span>
-<span class="sd">- ADMIN_USER_FILE filename of file containing super user username (valid email address)</span>
-<span class="sd">- ADMIN_USER username (valid email address) of super user, will override ADMIN_USER_FILE</span>
-<span class="sd">- ADMIN_PASSWORD_FILE filename of file containing super user password in plaintext</span>
-<span class="sd">- ADMIN_PASSWORD super user password in plaintext, will override ADMIN_PASSWORD_FILE</span>
+<span class="sd">- :attr:`DOMAIN`</span>
+<span class="sd">- :attr:`APPLICATION`</span>
+<span class="sd">- :attr:`LOGINSCREEN`</span>
+<span class="sd">- :attr:`CONFIRMREGISTRATION`</span>
+<span class="sd">- :attr:`RESETPASSWORD`</span>
+<span class="sd">- :attr:`WEBSITE`</span>
+<span class="sd">- :attr:`SOFTTIMEOUT`</span>
+<span class="sd">- :attr:`HARDTIMEOUT`</span>
+<span class="sd">- :attr:`PWRESETTIMEOUT`</span>
+<span class="sd">- :attr:`REGISTERTIMEOUT`</span>
+<span class="sd">- :attr:`EMAILTEMPLATE_FORGOTPASSWORD`</span>
+<span class="sd">- :attr:`EMAILTEMPLATE_REGISTER`</span>
+
+<span class="sd">The following environment variables define credentials but are not present in the module as attributes.</span>
+
+<span class="sd">- `ADMIN_USER_FILE` point to a file containing admin user name.</span>
+<span class="sd">- `ADMIN_USER` admin user name, overrides `ADMIN_USER_FILE`</span>
+<span class="sd">- `ADMIN_PASSWORD_FILE` point to a file containing admin password.</span>
+<span class="sd">- `ADMIN_PASSWORD` admin password, overrides `ADMIN_PASSWORD_FILE`</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 
@@ -109,14 +156,12 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return the integer in the environment variable.</span>
 
-<span class="sd">    # Arguments</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        variable(str):    the name of the environment variable</span>
+<span class="sd">        default(int):     the default value to return if variable is not defined</span>
 
-<span class="sd">    variable(str):    the name of the environment variable</span>
-<span class="sd">    default(int):     the default value to return if variable is not defined</span>
-
-<span class="sd">    # Returns</span>
-
-<span class="sd">    An integer value.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        An integer value.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">variable</span><span class="p">])</span>
@@ -127,14 +172,12 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return the value of the environment variable.</span>
 
-<span class="sd">    # Arguments</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        variable(str):    the name of the environment variable</span>
+<span class="sd">        default(str):     the default value to return if variable is not defined</span>
 
-<span class="sd">    variable(str):    the name of the environment variable</span>
-<span class="sd">    default(str):     the default value to return if variable is not defined</span>
-
-<span class="sd">    # Returns</span>
-
-<span class="sd">    A string.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A string.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
@@ -145,22 +188,19 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return the contents of the file specified in the environment variable.</span>
 
-<span class="sd">    # Arguments</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        variable(str):           the name of the environment variable</span>
+<span class="sd">        defaultfilename(str):    the filename to use if the variable is not defined</span>
+<span class="sd">        default(str):            the string to return if the file couldn&#39;t be found</span>
 
-<span class="sd">    variable(str):           the name of the environment variable</span>
-<span class="sd">    defaultfilename(str):    the filename to use if the variable is not defined</span>
-<span class="sd">    default(str):            the string to return if the file couldn&#39;t be found</span>
-
-<span class="sd">    the default contains the following placeholders that can be used in the actual files as well</span>
+<span class="sd">    The default contains the following placeholders that can be used in the actual files as well</span>
 
 <span class="sd">    - {name}    the full name of the user</span>
 <span class="sd">    - {link}    a confirmation link to click</span>
 <span class="sd">    - {website} the name of the application/website</span>
 
-<span class="sd">    # Returns</span>
-
-<span class="sd">    A string.</span>
-
+<span class="sd">    Returns:</span>
+<span class="sd">        A string.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">filename</span> <span class="o">=</span> <span class="n">defaultfilename</span>
     <span class="n">text</span> <span class="o">=</span> <span class="n">default</span>
@@ -175,33 +215,65 @@
     <span class="k">return</span> <span class="n">text</span></div>
 
 
-<span class="c1"># domain to be used in session cookie</span>
-<span class="n">DOMAIN</span>              <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;DOMAIN&#39;</span><span class="p">)</span>               <span class="c1"># e.g. yourdomain.org</span>
-<span class="c1"># redirect locations for successful logon</span>
-<span class="n">APPLICATION</span>         <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;APPLICATION&#39;</span><span class="p">)</span>          <span class="c1"># e.g. /books</span>
-<span class="n">LOGINSCREEN</span>         <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;LOGINSCREEN&#39;</span><span class="p">)</span>          <span class="c1"># e.g. /books/login.html</span>
-<span class="c1"># these get used in confirmation emails:</span>
-<span class="n">CONFIRMREGISTRATION</span> <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;CONFIRMREGISTRATION&#39;</span><span class="p">)</span>  <span class="c1"># e.g. https://server.yourdomain.org/auth/confirmregistration</span>
-<span class="n">RESETPASSWORD</span>       <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;RESETPASSWORD&#39;</span><span class="p">)</span>        <span class="c1"># e.g. https://server.yourdomain.org/auth/resetpassword</span>
-<span class="c1">#</span>
-<span class="n">WEBSITE</span>             <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;WEBSITE&#39;</span><span class="p">)</span>              <span class="c1"># e.g. Book Collection</span>
+<span class="n">DOMAIN</span>              <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;DOMAIN&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Domain to be used in session cookie, e.g. `yourdomain.org` &quot;&quot;&quot;</span>
 
-<span class="c1"># session limits in minutes</span>
+<span class="n">APPLICATION</span>         <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;APPLICATION&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Redirect locations for successful logon, e.g. `/books`&quot;&quot;&quot;</span>
+
+<span class="n">LOGINSCREEN</span>         <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;LOGINSCREEN&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Location of login screen, e.g. `/books/login.html`&quot;&quot;&quot;</span>
+
+<span class="n">CONFIRMREGISTRATION</span> <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;CONFIRMREGISTRATION&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Base url in email registration confirmation, e.g. ``https://server.yourdomain.org/auth/confirmregistration``&quot;&quot;&quot;</span>
+
+<span class="n">RESETPASSWORD</span>       <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;RESETPASSWORD&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Base url in password reset request confirmation, e.g. ``https://server.yourdomain.org/auth/resetpassword``&quot;&quot;&quot;</span>
+
+<span class="n">WEBSITE</span>             <span class="o">=</span> <span class="n">getvar</span><span class="p">(</span><span class="s1">&#39;WEBSITE&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;The name of the app/website, e.g. `Book Collection`&quot;&quot;&quot;</span>
+
 <span class="n">SOFTTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;SOFTTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Session soft limit in minutes&quot;&quot;&quot;</span>
+
 <span class="n">HARDTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;HARDTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Session hard limit in minutes&quot;&quot;&quot;</span>
 
-<span class="c1"># confirmation limits in minutes</span>
 <span class="n">PWRESETTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;PWRESETTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
-<span class="n">REGISTERTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;REGISTERTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Password reset request confirmation limit in minutes&quot;&quot;&quot;</span>
 
-<span class="n">SESSIONID_pattern</span>   <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9a-f]</span><span class="si">{32}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="n">PASSWORD_lower</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[a-z]&quot;</span><span class="p">)</span>
-<span class="n">PASSWORD_upper</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[A-Z]&quot;</span><span class="p">)</span>
-<span class="n">PASSWORD_digit</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9]&quot;</span><span class="p">)</span>
-<span class="n">PASSWORD_special</span>    <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[ !|@#$%^&amp;*()\-_.,&lt;&gt;?/</span><span class="se">\\</span><span class="si">{}</span><span class="s2">\[\]]&quot;</span><span class="p">)</span>
+<span class="n">REGISTERTIMEOUT</span> <span class="o">=</span> <span class="n">number</span><span class="p">(</span><span class="s1">&#39;REGISTERTIMEOUT&#39;</span><span class="p">,</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Registration confirmation limit in minutes&quot;&quot;&quot;</span>
 
 <span class="n">EMAILTEMPLATE_FORGOTPASSWORD</span> <span class="o">=</span> <span class="n">getfile</span><span class="p">(</span><span class="s1">&#39;EMAILTEMPLATE_FORGOTPASSWORD&#39;</span><span class="p">,</span> <span class="s1">&#39;mailtemplates/passwordreset.mail&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">File containing email template for password reset confirmation email</span>
+
+<span class="sd">See :func:`getfile` for allowed template variables inside the text.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
 <span class="n">EMAILTEMPLATE_REGISTER</span> <span class="o">=</span> <span class="n">getfile</span><span class="p">(</span><span class="s1">&#39;EMAILTEMPLATE_REGISTER&#39;</span><span class="p">,</span> <span class="s1">&#39;mailtemplates/registration.mail&#39;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">File containing email template for registration confirmation email</span>
+
+<span class="sd">See :func:`getfile` for allowed template variables inside the text.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">SESSIONID_pattern</span>   <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9a-f]</span><span class="si">{32}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Legal pattern for a session id and confirmation ids&quot;&quot;&quot;</span>
+
+<span class="c1"># TODO expand password patterns to full unicode</span>
+<span class="n">PASSWORD_lower</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[a-z]&quot;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;These characters are considered lowercase in passwords&quot;&quot;&quot;</span>
+
+<span class="n">PASSWORD_upper</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[A-Z]&quot;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;These characters are considered uppercase in passwords&quot;&quot;&quot;</span>
+
+<span class="n">PASSWORD_digit</span>      <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9]&quot;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;These characters are considered digits in passwords&quot;&quot;&quot;</span>
+
+<span class="n">PASSWORD_special</span>    <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[ !|@#$%^&amp;*()\-_.,&lt;&gt;?/</span><span class="se">\\</span><span class="si">{}</span><span class="s2">\[\]]&quot;</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;These characters are considered special in passwords&quot;&quot;&quot;</span>
 
 
 <div class="viewcode-block" id="newpassword"><a class="viewcode-back" href="../../server.html#server.server.newpassword">[docs]</a><span class="k">def</span> <span class="nf">newpassword</span><span class="p">(</span><span class="n">password</span><span class="p">):</span>
@@ -211,13 +283,11 @@
 <span class="sd">    The password is salted with 16 random bytes.</span>
 <span class="sd">    The salt is prepended as 32 hex digits to the returned hash.</span>
 
-<span class="sd">    # Arguments</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        password(str):  the password to hash.</span>
 
-<span class="sd">    password(str):  the password to hash.</span>
-
-<span class="sd">    # Returns</span>
-
-<span class="sd">    A string consisting of 32 + 64 hexadecimal characters.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A string consisting of 32 + 64 hexadecimal characters.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">salt</span> <span class="o">=</span> <span class="n">urandom</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
     <span class="n">dk</span> <span class="o">=</span> <span class="n">pbkdf2_hmac</span><span class="p">(</span><span class="s1">&#39;sha256&#39;</span><span class="p">,</span> <span class="n">password</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">salt</span><span class="p">,</span> <span class="mi">100000</span><span class="p">)</span>
@@ -242,7 +312,7 @@
 <span class="sd">    - between 8 and 64 characters,</span>
 <span class="sd">    - contain at least 1 lowercase, 1 uppercase, 1 digit and 1 special character</span>
 <span class="sd">    - it may not contain characters outside those classes</span>
-<span class="sd">    - character classes *are* unicode aware</span>
+<span class="sd">    - character classes _are_ unicode aware</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">64</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">8</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">False</span>
@@ -261,30 +331,23 @@
 
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Defines allowable input parameters for a POST or GET request.</span>
-
-<span class="sd">    # Attributes</span>
-
-<span class="sd">    __init__(self, specs={}):   creates a ParameterSet instance based on a dictionary of parameters</span>
-<span class="sd">    check(self, params): verify that a dictionary of params conforms to the defined requirements</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">specs</span><span class="o">=</span><span class="p">{}):</span>
+<div class="viewcode-block" id="ParameterSet.__init__"><a class="viewcode-back" href="../../server.html#server.server.ParameterSet.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">specs</span><span class="o">=</span><span class="p">{}):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Creates a ParameterSet instance based on a dictionary of parameters.</span>
 
-<span class="sd">        # Arguments</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            specs(dict): specifies a mapping name --&gt; (ex, maxlength)</span>
+<span class="sd">              `name` is a case sensitive name of an allowed input parameter</span>
 
-<span class="sd">        specs(dict): specifies a mapping name --&gt; (ex, maxlength)</span>
+<span class="sd">              `ex` is either a string, a regular expression or a callable that specifies the validity of a value.</span>
 
-<span class="sd">            `name` is a case sensitive name of an allowed input parameter</span>
+<span class="sd">              `maxlength` is an integer that specifies the maximum length of a parameter value</span>
 
-<span class="sd">            `ex` is either a string, a regular expression or a callable that specifies the validity of a value.</span>
+<span class="sd">              If `ex` is a string it is converted to a regular expression.</span>
 
-<span class="sd">            `maxlength` is an integer that specifies the maximum length of a parameter value</span>
-
-<span class="sd">            If `ex` is a string it is converted to a regular expression.</span>
-
-<span class="sd">            If `ex` is a callable it should return a boolean indicating the validity of a value.</span>
+<span class="sd">              If `ex` is a callable it should return a boolean indicating the validity of a value.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">specs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">specs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -293,19 +356,17 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="n">length</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span><span class="p">,</span> <span class="n">length</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">specs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="ParameterSet.check"><a class="viewcode-back" href="../../server.html#server.server.ParameterSet.check">[docs]</a>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return true if all params are all allowed.</span>
 
-<span class="sd">        # Arguments</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            params(dict): is a mapping name --&gt; value,  where name and value are strings</span>
+<span class="sd">              Each value should match the requirements specified for &#39;name&#39;.</span>
 
-<span class="sd">        params(dict): is a mapping name --&gt; value,  where name and value are strings</span>
-
-<span class="sd">            Each value should match the requirements specfied for &#39;name&#39;.</span>
-
-<span class="sd">            If `params` contains extra parameters or it is missing items it is considered invalid.</span>
+<span class="sd">              If `params` contains extra parameters or it is missing items it is considered invalid.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;params </span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">:</span>  <span class="c1"># all input names should be present</span>
@@ -331,34 +392,30 @@
 
 <div class="viewcode-block" id="alchemyencoder"><a class="viewcode-back" href="../../server.html#server.server.alchemyencoder">[docs]</a><span class="k">def</span> <span class="nf">alchemyencoder</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A json encoder for SQLAlchemy declarative_base objects, date and Decimal objects.</span>
+<span class="sd">    A JSON encoder for SQLAlchemy :func:`declarative_base` objects, :class:`date` and :class:`Decimal` objects.</span>
 
-<span class="sd">    `Base` objects are returned a `dict` object with a key for each column.</span>
+<span class="sd">    :class:`Base` objects are returned as :class:`dict` object with a key for each column.</span>
 <span class="sd">    A column with a name equal to `password` is _not_ included.</span>
 <span class="sd">    If a Base object has a `user` column, an extra key `email` is added that contains `user.email`.</span>
 
 
-<span class="sd">    `date` objects are returned as an isoformat string.</span>
+<span class="sd">    :class:`date` objects are returned as an isoformat string.</span>
 
-<span class="sd">    `Decimal` objects are returned as a float.</span>
+<span class="sd">    :class:`Decimal` objects are returned as a float.</span>
 
-<span class="sd">    # Arguments</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        obj(object): an object to decode</span>
 
-<span class="sd">    obj(object): an object to decode</span>
-
-<span class="sd">    # Returns</span>
-
-<span class="sd">    A `dict`, `str`, `float` or `None`.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A :class:`dict`, :class:`str`, :class:`float` or `None`.</span>
 
 <span class="sd">    Like all default encoders for json it returns objects which are then encoded to json strings by the main encoder.</span>
 
-<span class="sd">    # Example</span>
+<span class="sd">    an example::</span>
 
-<span class="sd">    ```</span>
-<span class="sd">    import json</span>
+<span class="sd">        import json</span>
 
-<span class="sd">    jsonstring = json.dumps(someobject, default=alchemyencoder)</span>
-<span class="sd">    ```</span>
+<span class="sd">        jsonstring = json.dumps(someobject, default=alchemyencoder)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Base</span><span class="p">):</span>
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s1">&#39;password&#39;</span><span class="p">}</span>  <span class="c1"># passwords *never* leave the system, not even encrypted</span>
@@ -374,103 +431,118 @@
 <div class="viewcode-block" id="User"><a class="viewcode-back" href="../../server.html#server.server.User">[docs]</a><span class="k">class</span> <span class="nc">User</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    ORM representation of a User.</span>
-
-<span class="sd">    # Attributes</span>
-
-<span class="sd">    id(int): primary key</span>
-<span class="sd">    email(str): user name (a valid email address)</span>
-<span class="sd">    password(str): hashed password</span>
-<span class="sd">    name(str): full name</span>
-<span class="sd">    superuser(bool): role, true if superuser</span>
-<span class="sd">    created(datetime): timestamp</span>
-<span class="sd">    active(bool): true if user account is enabled</span>
-<span class="sd">    attempts(int): number of failed login attemtps</span>
-<span class="sd">    accessed(datetime): timestamp of last access</span>
-<span class="sd">    locked(datetime): timestamp of user lockout</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;user&#39;</span>
+
     <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;Primary key&quot;&quot;&quot;</span>
+
     <span class="n">email</span>       <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;user name (a valid email address)&quot;&quot;&quot;</span>
+
     <span class="n">password</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="sd">&quot;&quot;&quot;hashed password&quot;&quot;&quot;</span>
+
     <span class="n">name</span>        <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="sd">&quot;&quot;&quot;full name&quot;&quot;&quot;</span>
+
     <span class="n">superuser</span>   <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;role, true if superuser&quot;&quot;&quot;</span>
+
     <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp&quot;&quot;&quot;</span>
+
     <span class="n">active</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;true if user account is enabled&quot;&quot;&quot;</span>
+
     <span class="n">attempts</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;number of failed login attempts&quot;&quot;&quot;</span>
+
     <span class="n">accessed</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
-    <span class="n">locked</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span></div>
+    <span class="sd">&quot;&quot;&quot;timestamp of last access&quot;&quot;&quot;</span>
+
+    <span class="n">locked</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp of user lockout&quot;&quot;&quot;</span></div>
 
 
 <div class="viewcode-block" id="Session"><a class="viewcode-back" href="../../server.html#server.server.Session">[docs]</a><span class="k">class</span> <span class="nc">Session</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    ORM representation of a Session.</span>
 
-<span class="sd">    # Attributes</span>
-
-<span class="sd">    id(str): primary key holds a guid</span>
-<span class="sd">    created(datetime): timestamp</span>
-<span class="sd">    softlimit(datetime): timestamp, session must show activity before this time to be renewed</span>
-<span class="sd">    hardlimit(datetime): timestamp, after this time the session will be removed regardless</span>
-<span class="sd">    userid(int): foreign key to User, on cascade delete is on</span>
-<span class="sd">    user: ORM link to User</span>
-
-
-<span class="sd">    This session will be deleted if the corresponding user is deleted.</span>
+<span class="sd">    Any session will be deleted if the corresponding user is deleted.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;session&#39;</span>
-    <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">34</span><span class="p">),</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># holds a guid</span>
+
+    <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">34</span><span class="p">),</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;primary key holds a guid&quot;&quot;&quot;</span>
+
     <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp&quot;&quot;&quot;</span>
+
     <span class="n">softlimit</span>   <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp, session must show activity before this time to be renewed&quot;&quot;&quot;</span>
+
     <span class="n">hardlimit</span>   <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp, after this time the session will be removed regardless&quot;&quot;&quot;</span>
+
     <span class="n">userid</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;user.id&#39;</span><span class="p">,</span> <span class="n">ondelete</span><span class="o">=</span><span class="s1">&#39;CASCADE&#39;</span><span class="p">))</span>
-    <span class="n">user</span>        <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">User</span><span class="p">)</span></div>
+    <span class="sd">&quot;&quot;&quot;foreign key to User, on cascade delete is on&quot;&quot;&quot;</span>
+
+    <span class="n">user</span>        <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">User</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;ORM link to User&quot;&quot;&quot;</span></div>
 
 
 <div class="viewcode-block" id="PendingUser"><a class="viewcode-back" href="../../server.html#server.server.PendingUser">[docs]</a><span class="k">class</span> <span class="nc">PendingUser</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    ORM representation of a PendingUser (a newly registered user awaiting confirmation).</span>
-
-<span class="sd">    # Attributes</span>
-
-<span class="sd">    id(str): primary key holds a guid</span>
-<span class="sd">    email(str): user name (a valid email address)</span>
-<span class="sd">    password(str): hashed password</span>
-<span class="sd">    name(str): full name</span>
-<span class="sd">    created(datetime): timestamp</span>
-<span class="sd">    expires(datetime): timestamp, after this time the session will be removed regardless</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;pendinguser&#39;</span>
+
     <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">34</span><span class="p">),</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># holds a guid</span>
+    <span class="sd">&quot;&quot;&quot;primary key holds a guid&quot;&quot;&quot;</span>
+
     <span class="n">email</span>       <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;user name (a valid email address)&quot;&quot;&quot;</span>
+
     <span class="n">name</span>        <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="sd">&quot;&quot;&quot;full name&quot;&quot;&quot;</span>
+
     <span class="n">password</span>    <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+    <span class="sd">&quot;&quot;&quot;hashed password&quot;&quot;&quot;</span>
+
     <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
-    <span class="n">expires</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span></div>
+    <span class="sd">&quot;&quot;&quot;timestamp&quot;&quot;&quot;</span>
+
+    <span class="n">expires</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp, after this time the session will be removed regardless&quot;&quot;&quot;</span></div>
 
 
 <div class="viewcode-block" id="PasswordReset"><a class="viewcode-back" href="../../server.html#server.server.PasswordReset">[docs]</a><span class="k">class</span> <span class="nc">PasswordReset</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    ORM representation of a PasswordReset event awaiting confirmation.</span>
 
-<span class="sd">    # Attributes</span>
-
-<span class="sd">    id(str): primary key holds a guid</span>
-<span class="sd">    created(datetime): timestamp</span>
-<span class="sd">    expires(datetime): timestamp, after this time the session will be removed regardless</span>
-<span class="sd">    userid(int): foreign key to User, on cascade delete is on</span>
-<span class="sd">    user: ORM link to User</span>
-
-
 <span class="sd">    This PasswordReset will be deleted if the corresponding user is deleted.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;passwordreset&#39;</span>
+
     <span class="nb">id</span>          <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">34</span><span class="p">),</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># holds a guid</span>
+    <span class="sd">&quot;&quot;&quot;primary key holds a guid&quot;&quot;&quot;</span>
+
     <span class="n">created</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp&quot;&quot;&quot;</span>
+
     <span class="n">expires</span>     <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="sd">&quot;&quot;&quot;timestamp, after this time the session will be removed regardless&quot;&quot;&quot;</span>
+
     <span class="n">userid</span>      <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;user.id&#39;</span><span class="p">,</span> <span class="n">ondelete</span><span class="o">=</span><span class="s1">&#39;CASCADE&#39;</span><span class="p">))</span>
-    <span class="n">user</span>        <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">User</span><span class="p">)</span></div>
+    <span class="sd">&quot;&quot;&quot;foreign key to User, on cascade delete is on&quot;&quot;&quot;</span>
+
+    <span class="n">user</span>        <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">User</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;ORM link to User&quot;&quot;&quot;</span></div>
 
 
 <span class="n">verifysession_params</span>  <span class="o">=</span> <span class="n">ParameterSet</span><span class="p">({</span><span class="s1">&#39;sessionid&#39;</span><span class="p">:</span> <span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[01-9a-f]</span><span class="si">{32}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">34</span><span class="p">)})</span>
@@ -485,19 +557,16 @@
 
 <div class="viewcode-block" id="max_body"><a class="viewcode-back" href="../../server.html#server.server.max_body">[docs]</a><span class="k">def</span> <span class="nf">max_body</span><span class="p">(</span><span class="n">limit</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A falcon before hook to limit size of request body.</span>
+<span class="sd">    A :func:`falcon.before` hook to limit the size of request body.</span>
 
-<span class="sd">    # Arguments</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        limit(int): maximum size in bytes of the request body</span>
 
-<span class="sd">    limit(int): maximum size in bytes of the request body.</span>
+<span class="sd">    Raises:</span>
+<span class="sd">        :exception:`falcon.HTTPPayloadTooLarge` when the body of the request exceeds `limit`</span>
 
-<span class="sd">    # Raises</span>
-
-<span class="sd">    falcon.HTTPPayloadTooLarge: when the body of the request exceeds `limit`.</span>
-
-<span class="sd">    # Returns</span>
-
-<span class="sd">    a hook function.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        a hook function</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span> <span class="nf">hook</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
         <span class="n">length</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">content_length</span>
@@ -514,33 +583,35 @@
 <div class="viewcode-block" id="LoginResource"><a class="viewcode-back" href="../../server.html#server.server.LoginResource">[docs]</a><span class="k">class</span> <span class="nc">LoginResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves the action of a login form.</span>
-
-<span class="sd">    This resource only defines an `on_post()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="LoginResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.LoginResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Handle a logon POST request.</span>
 
-<span class="sd">        # Arguments</span>
-<span class="sd">        req: the request</span>
-<span class="sd">        resp: the response</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
 
-<span class="sd">        # Returns</span>
-<span class="sd">        None</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
 
 <span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
-<span class="sd">        On success it will set the Location header to APPLICATION and return a session cookie.</span>
-<span class="sd">        On failure it will set the Location header to LOGINSCREEN.</span>
-<span class="sd">        It will always set the response status to falcon.HTTP_303.</span>
 
-<span class="sd">        # Parameters</span>
+<span class="sd">        On success it will set the `Location` header to :attr:`APPLICATION` and return a session cookie.</span>
 
-<span class="sd">        - email: the username of the user (a valid email address)</span>
-<span class="sd">        - password: the password</span>
-<span class="sd">        - login: the literal text `Login`</span>
+<span class="sd">        On failure it will set the `Location` header to :attr:`LOGINSCREEN`.</span>
 
-<span class="sd">        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Login` attribute.</span>
+<span class="sd">        It will always set the response status to :attr:`falcon.HTTP_303`.</span>
+
+<span class="sd">        Other Parameters:</span>
+<span class="sd">            email: the username of the user (a valid email address)</span>
+<span class="sd">            password: the password</span>
+<span class="sd">            login: the literal text `Login`</span>
+
+<span class="sd">        Typically these parameters would correspond to input fields in an</span>
+<span class="sd">        HTML form and a submit button with a `name=Login` attribute and</span>
+<span class="sd">        send as input parameters in the body of the request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;LoginResource&#39;</span><span class="p">)</span>
         <span class="k">global</span> <span class="n">DBSession</span>
@@ -580,36 +651,39 @@
 <div class="viewcode-block" id="RegisterResource"><a class="viewcode-back" href="../../server.html#server.server.RegisterResource">[docs]</a><span class="k">class</span> <span class="nc">RegisterResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves the action of a registration form.</span>
-
-<span class="sd">    This resource only defines an `on_post()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="RegisterResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.RegisterResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Handle a register POST request.</span>
 
-<span class="sd">        # Arguments</span>
-<span class="sd">        req: the request</span>
-<span class="sd">        resp: the response</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
 
-<span class="sd">        # Returns</span>
-<span class="sd">        None</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
 
 <span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
+
 <span class="sd">        On success it will create a pending user request and send an email with a confirmation link.</span>
+
 <span class="sd">        On failure it will do nothing.</span>
-<span class="sd">        It will always set the Location header to LOGINSCREEN.</span>
-<span class="sd">        It will always set the response status to falcon.HTTP_303.</span>
 
-<span class="sd">        # Parameters</span>
+<span class="sd">        It will always set the `Location` header to :attr:`LOGINSCREEN`.</span>
 
-<span class="sd">        - email: the username of the user (a valid email address)</span>
-<span class="sd">        - name: the full name of the user</span>
-<span class="sd">        - password: the password ( 8 &gt;= length &lt;= 64, must contain at lease 1 lowercase, 1 uppercase, 1 digit and 1 special char.</span>
-<span class="sd">        - password2: must be identical to the password parameter</span>
-<span class="sd">        - login: the literal text `Register`</span>
+<span class="sd">        It will always set the response status to :attr:`falcon.HTTP_303`.</span>
 
-<span class="sd">        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Register` attribute.</span>
+<span class="sd">        Other Parameters:</span>
+<span class="sd">            email: the username of the user (a valid email address)</span>
+<span class="sd">            name: the full name of the user</span>
+<span class="sd">            password: the password ( 8 &gt;= length &lt;= 64, must contain at lease 1 lowercase, 1 uppercase, 1 digit and 1 special char.</span>
+<span class="sd">            password2: must be identical to the password parameter</span>
+<span class="sd">            login: the literal text `Register`</span>
+
+<span class="sd">        Typically these parameters would correspond to input fields in an</span>
+<span class="sd">        HTML form and a submit button with a `name=Register` attribute and</span>
+<span class="sd">        send as input parameters in the body of the request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;RegisterResource&#39;</span><span class="p">)</span>
         <span class="k">global</span> <span class="n">DBSession</span>
@@ -656,33 +730,36 @@
 <div class="viewcode-block" id="ForgotPasswordResource"><a class="viewcode-back" href="../../server.html#server.server.ForgotPasswordResource">[docs]</a><span class="k">class</span> <span class="nc">ForgotPasswordResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves the action of a forgot password form.</span>
-
-<span class="sd">    This resource only defines an `on_post()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="ForgotPasswordResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.ForgotPasswordResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Handle a forgotpassword POST request.</span>
 
-<span class="sd">        # Arguments</span>
-<span class="sd">        req: the request</span>
-<span class="sd">        resp: the response</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
 
-<span class="sd">        # Returns</span>
-<span class="sd">        None</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
 
 <span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
+
 <span class="sd">        On success it will create a password reset request and send an email with a confirmation link.</span>
+
 <span class="sd">        On failure it will do nothing.</span>
-<span class="sd">        It will always set the Location header to LOGINSCREEN.</span>
-<span class="sd">        It will always set the response status to falcon.HTTP_303.</span>
 
-<span class="sd">        # Parameters</span>
+<span class="sd">        It will always set the `Location` header to :attr:`LOGINSCREEN`.</span>
 
-<span class="sd">        - email: the username of the user (a valid email address)</span>
-<span class="sd">        - login: the literal text `Forgot`</span>
+<span class="sd">        It will always set the response status to ;attr:`falcon.HTTP_303`.</span>
 
-<span class="sd">        Typically these parameters would correspond to input fields in an HTML form and a submit button wit a `name=Forgot` attribute.</span>
+<span class="sd">        Other Parameters:</span>
+<span class="sd">            email: the username of the user (a valid email address)</span>
+<span class="sd">            login: the literal text `Forgot`</span>
+
+<span class="sd">        Typically these parameters would correspond to input fields in an</span>
+<span class="sd">        HTML form and a submit button with a `name=Forgot` attribute and</span>
+<span class="sd">        send as input parameters in the body of the request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ForgotPasswordResource&#39;</span><span class="p">)</span>
         <span class="k">global</span> <span class="n">DBSession</span>
@@ -718,40 +795,39 @@
 <div class="viewcode-block" id="VerifySessionResource"><a class="viewcode-back" href="../../server.html#server.server.VerifySessionResource">[docs]</a><span class="k">class</span> <span class="nc">VerifySessionResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves as the internal endpoint to verify the existence of a valid session.</span>
-
-<span class="sd">    This resource only defines an `on_post()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="VerifySessionResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.VerifySessionResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Handle a verifysession POST request.</span>
 
-<span class="sd">        # Arguments</span>
-<span class="sd">        req: the request</span>
-<span class="sd">        resp: the response</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
 
-<span class="sd">        # Returns</span>
-<span class="sd">        On success the body will contain the following key=value pairs separated by newline characters</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            On success the response body will contain the following key=value pairs separated by newline characters:</span>
 
-<span class="sd">        - email(str)</span>
-<span class="sd">        - id(int)</span>
-<span class="sd">        - name(str)</span>
-<span class="sd">        - superuser(book)</span>
+<span class="sd">                - email(str)</span>
+<span class="sd">                - id(int)</span>
+<span class="sd">                - name(str)</span>
+<span class="sd">                - superuser(bool)</span>
 
 <span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
-<span class="sd">        On success it will the session data and set the response status to falcon.HTTP_200.</span>
-<span class="sd">        On failure it will do nothing and return a response status of falcon.HTTP_404.</span>
 
-<span class="sd">        # Request parameters</span>
+<span class="sd">        On success it will the session data and set the response status to :attr:`falcon.HTTP_200`.</span>
 
-<span class="sd">        - email: the username of the user (a valid email address)</span>
-<span class="sd">        - login: the literal text `Forgot`</span>
+<span class="sd">        On failure it will do nothing and return a response status of :attr:`falcon.HTTP_404`.</span>
+
+<span class="sd">        Other Parameters:</span>
+<span class="sd">            email: the username of the user (a valid email address)</span>
+<span class="sd">            login: the literal text `Forgot`</span>
 
 <span class="sd">        This method should not be called from the browser. It is typically called by other backend servers to verify</span>
 <span class="sd">        the validity of a session and get the email address, name and superuser status of that session.</span>
 
-<span class="sd">        It does not accept request that have an `X-Forwarded-Host` header defined, so if the authserver and the backend</span>
-<span class="sd">        server are positioned behind a reverse proxy that adds these headers (like traefik) all things be fine.</span>
+<span class="sd">        It does not accept requests that have an `X-Forwarded-Host` header defined, so if the authserver and the backend</span>
+<span class="sd">        server are positioned behind a reverse proxy that adds these headers (like traefik) all things will be fine.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;VerifySessionResource&#39;</span><span class="p">)</span>
@@ -778,6 +854,26 @@
             <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="VerifySessionResource.session_active"><a class="viewcode-back" href="../../server.html#server.server.VerifySessionResource.session_active">[docs]</a>    <span class="k">def</span> <span class="nf">session_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">sessionid</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check whether a sessionid represents an active session.</span>
+
+<span class="sd">        A session is active</span>
+
+<span class="sd">            - if the sessionid exists</span>
+
+<span class="sd">            - its :attr:`Session.softlimit` is in the future.</span>
+
+<span class="sd">        If a session is found to be valid, its :attr:`Session.softlimit` is set to :attr:`SOFTTIMEOUT` minutes from now.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            session(DBSession): SQLAlchemy session</span>
+<span class="sd">            sessionid(str): a sessionid</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            On success: a bytes object with a newline separated list of key=value pairs</span>
+
+<span class="sd">            On failure: None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Session</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Session</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">sessionid</span><span class="p">,</span> <span class="n">now</span> <span class="o">&lt;</span> <span class="n">Session</span><span class="o">.</span><span class="n">hardlimit</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">now</span> <span class="o">&lt;</span> <span class="n">s</span><span class="o">.</span><span class="n">softlimit</span><span class="p">:</span>
@@ -792,11 +888,30 @@
 <div class="viewcode-block" id="LogoutResource"><a class="viewcode-back" href="../../server.html#server.server.LogoutResource">[docs]</a><span class="k">class</span> <span class="nc">LogoutResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves the action of a logout form.</span>
-
-<span class="sd">    This resource only defines an `on_post()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="LogoutResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.LogoutResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle a logout POST request.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+
+<span class="sd">        The method expects no input parameters in the request body.</span>
+<span class="sd">        A valid sessionid cookie should be present.</span>
+
+<span class="sd">        On success it will remove the session.</span>
+
+<span class="sd">        On failure it will do nothing.</span>
+
+<span class="sd">        It will always set the `Location` header to :attr:`LOGINSCREEN`.</span>
+
+<span class="sd">        It will always set the response status to ;attr:`falcon.HTTP_303`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;LogoutResource&#39;</span><span class="p">)</span>
         <span class="k">global</span> <span class="n">DBSession</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
@@ -820,11 +935,40 @@
 <div class="viewcode-block" id="ChoosePasswordResource"><a class="viewcode-back" href="../../server.html#server.server.ChoosePasswordResource">[docs]</a><span class="k">class</span> <span class="nc">ChoosePasswordResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves the action of a choose new password form.</span>
-
-<span class="sd">    This resource only defines an `on_post()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="ChoosePasswordResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.ChoosePasswordResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">1024</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle a choose password POST request.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+
+<span class="sd">        The method expects its input as www-formencoded parameters in the request body.</span>
+<span class="sd">        It also</span>
+
+<span class="sd">        On success it will change the password of the user.</span>
+
+<span class="sd">        On failure it will do nothing.</span>
+
+<span class="sd">        It will always set the `Location` header to :attr:`LOGINSCREEN`.</span>
+
+<span class="sd">        It will always set the response status to :attr:`falcon.HTTP_303`.</span>
+
+<span class="sd">        Other Parameters:</span>
+<span class="sd">            resetid: an id that should be present in the :class:`PendingUser` table</span>
+<span class="sd">            password: the password ( 8 &gt;= length &lt;= 64, must contain at lease 1 lowercase, 1 uppercase, 1 digit and 1 special char.</span>
+<span class="sd">            password2: must be identical to the password parameter</span>
+<span class="sd">            choose: the literal text `Choose`</span>
+
+<span class="sd">        Typically these parameters would correspond to input fields in an</span>
+<span class="sd">        HTML form and a submit button with a `choose=Choose` attribute and</span>
+<span class="sd">        send as input parameters in the body of the request.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ChoosePasswordResource&#39;</span><span class="p">)</span>
         <span class="k">global</span> <span class="n">DBSession</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
@@ -851,12 +995,53 @@
 
 <div class="viewcode-block" id="StatsResource"><a class="viewcode-back" href="../../server.html#server.server.StatsResource">[docs]</a><span class="k">class</span> <span class="nc">StatsResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Routing endpoint that serves the REST endpoint for user information overviews.</span>
+<span class="sd">    Routing endpoint that serves as the REST endpoint for user information overviews.</span>
 
-<span class="sd">    This resource only defines an `on_post()` method.</span>
+<span class="sd">    It can return information in JSON format on :class:`User`, :class:`PendingUser`,</span>
+<span class="sd">    :class:`PasswordReset` and :class:`Session`.</span>
+
+<span class="sd">    Access is restricted to logged in users woth the superuser role.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="StatsResource.on_post"><a class="viewcode-back" href="../../server.html#server.server.StatsResource.on_post">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle a stats/{item} POST request, typically one initialed by an AJAX call.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
+<span class="sd">            item(str): the kind of item for which a list should be returned</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+
+<span class="sd">        Even though this is a POST handler, it should have no input parameters in the body.</span>
+<span class="sd">        The items that can be requested are:</span>
+
+<span class="sd">            - `users`: to return a JSON encoded list of :class:`User` objects</span>
+
+<span class="sd">            - `sessions`: to return a JSON encoded list of :class:`Session` objects</span>
+
+<span class="sd">            - `pendingusers`: to return a JSON encoded list of :class:`PendingUser` objects</span>
+
+<span class="sd">            - `passwordreset`: to return a JSON encoded list of :class:`PasswordReset` objects</span>
+
+<span class="sd">        On success the response body will contain a bytes object that is JSON data (in UTF-8 encoding).</span>
+<span class="sd">        Note that any password attributes will be stripped form the output.</span>
+
+<span class="sd">        Example:</span>
+
+<span class="sd">            JSON data is returned an object with a data attribute::</span>
+
+<span class="sd">                {</span>
+<span class="sd">                    &quot;data&quot;: [</span>
+<span class="sd">                                {&quot;id&quot;: 165675, &quot;email&quot;: &quot;abc@example.org&quot;, ...},</span>
+<span class="sd">                                {&quot;id&quot;: 365625, &quot;email&quot;: &quot;def@example.org&quot;, ...},</span>
+<span class="sd">                                ...</span>
+<span class="sd">                            ]</span>
+<span class="sd">                }</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;StatsResource&#39;</span><span class="p">)</span>
         <span class="n">itemmap</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;users&#39;</span><span class="p">:</span> <span class="n">User</span><span class="p">,</span> <span class="s1">&#39;sessions&#39;</span><span class="p">:</span> <span class="n">Session</span><span class="p">,</span> <span class="s1">&#39;pendingusers&#39;</span><span class="p">:</span> <span class="n">PendingUser</span><span class="p">,</span> <span class="s1">&#39;passwordresets&#39;</span><span class="p">:</span> <span class="n">PasswordReset</span><span class="p">}</span>
         <span class="k">global</span> <span class="n">DBSession</span>
@@ -888,11 +1073,30 @@
 <div class="viewcode-block" id="ConfirmRegistrationResource"><a class="viewcode-back" href="../../server.html#server.server.ConfirmRegistrationResource">[docs]</a><span class="k">class</span> <span class="nc">ConfirmRegistrationResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves the registration confirmation link.</span>
-
-<span class="sd">    This resource only defines an `on_get()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="ConfirmRegistrationResource.on_get"><a class="viewcode-back" href="../../server.html#server.server.ConfirmRegistrationResource.on_get">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+
+<span class="sd">        The method expects its input as query parameters in the url.</span>
+
+<span class="sd">        On success it will create a :class:`User` from the corresponding :class:`PendingUser`.</span>
+
+<span class="sd">        On failure it will do nothing.</span>
+
+<span class="sd">        It will always set the `Location` header to :attr:`LOGINSCREEN`.</span>
+
+<span class="sd">        It will always set the response status to :attr:`falcon.HTTP_303`.</span>
+
+<span class="sd">        Other Parameters:</span>
+<span class="sd">            confirmationid: an id that should be present in the :class:`PendingUser` table</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ConfirmRegistrationResource&#39;</span><span class="p">)</span>
         <span class="k">global</span> <span class="n">DBSession</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
@@ -921,11 +1125,31 @@
 <div class="viewcode-block" id="ConfirmForgotPasswordResource"><a class="viewcode-back" href="../../server.html#server.server.ConfirmForgotPasswordResource">[docs]</a><span class="k">class</span> <span class="nc">ConfirmForgotPasswordResource</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Routing endpoint that serves the password reset confirmation link.</span>
-
-<span class="sd">    This resource only defines an `on_get()` method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="ConfirmForgotPasswordResource.on_get"><a class="viewcode-back" href="../../server.html#server.server.ConfirmForgotPasswordResource.on_get">[docs]</a>    <span class="nd">@falcon</span><span class="o">.</span><span class="n">before</span><span class="p">(</span><span class="n">max_body</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
     <span class="k">def</span> <span class="nf">on_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            req: the request</span>
+<span class="sd">            resp: the response</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+
+<span class="sd">        The method expects its input as query parameters in the url.</span>
+
+<span class="sd">        On success it will create a :class:`User` from the corresponding :class:`PendingUser`.</span>
+
+<span class="sd">        On failure it will do nothing.</span>
+
+<span class="sd">        It will always set the `Location` header to :attr:`LOGINSCREEN`. If a pending request was found,</span>
+<span class="sd">        `?choosepassword=id` will be appended to the url. If not `?expired` will be added.</span>
+
+<span class="sd">        It will always set the response status to :attr:`falcon.HTTP_303`.</span>
+
+<span class="sd">        Other Parameters:</span>
+<span class="sd">            confirmationid: an id that should be present in the :class:`PasswordReset` table</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;ConfirmForgotPasswordResource&#39;</span><span class="p">)</span>
         <span class="k">global</span> <span class="n">DBSession</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">DBSession</span><span class="p">()</span>
@@ -949,17 +1173,17 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get admin variables from file or environment.</span>
 
-<span class="sd">    enviroment variables overrule variables in files.</span>
+<span class="sd">    Enviroment variables overrule variables in files.</span>
 
-<span class="sd">    # Returns</span>
-<span class="sd">    tuple(admin_user, admin_password)</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple(admin_user, admin_password)</span>
 
-<span class="sd">    # Module level attributes referenced</span>
+<span class="sd">    Module level attributes referenced:</span>
 
-<span class="sd">    - ADMIN_USER_FILE: filename of file containing super user username (valid email address)</span>
-<span class="sd">    - ADMIN_USER: username (valid email address) of super user, will override ADMIN_USER_FILE</span>
-<span class="sd">    - ADMIN_PASSWORD_FILE: filename of file containing super user password in plaintext</span>
-<span class="sd">    - ADMIN_PASSWORD: super user password in plaintext, will override ADMIN_PASSWORD_FILE</span>
+<span class="sd">    - :attr:`ADMIN_USER_FILE` filename of file containing super user username (valid email address)</span>
+<span class="sd">    - :attr:`ADMIN_USER` username (valid email address) of super user, will override ADMIN_USER_FILE</span>
+<span class="sd">    - :attr:`ADMIN_PASSWORD_FILE` filename of file containing super user password in plaintext</span>
+<span class="sd">    - :attr:`ADMIN_PASSWORD` super user password in plaintext, will override ADMIN_PASSWORD_FILE</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">env</span> <span class="o">=</span> <span class="p">{}</span>
@@ -979,7 +1203,7 @@
 
 <div class="viewcode-block" id="add_superuser"><a class="viewcode-back" href="../../server.html#server.server.add_superuser">[docs]</a><span class="k">def</span> <span class="nf">add_superuser</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Add superuser account to User table.</span>
+<span class="sd">    Add superuser account to :class:`User` table.</span>
 
 <span class="sd">    Will remove any user account with the same name along with any associated session.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1000,15 +1224,32 @@
     <span class="k">return</span> <span class="kc">True</span></div>
 
 
-<span class="c1"># https://docs.sqlalchemy.org/en/13/dialects/sqlite.html#foreign-key-support</span>
 <div class="viewcode-block" id="set_sqlite_pragma"><a class="viewcode-back" href="../../server.html#server.server.set_sqlite_pragma">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Engine</span><span class="p">,</span> <span class="s2">&quot;connect&quot;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">set_sqlite_pragma</span><span class="p">(</span><span class="n">dbapi_connection</span><span class="p">,</span> <span class="n">connection_record</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enable cascading constraint on the SQLAlchemy tables.</span>
+
+<span class="sd">    See: https://docs.sqlalchemy.org/en/13/dialects/sqlite.html#foreign-key-support</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cursor</span> <span class="o">=</span> <span class="n">dbapi_connection</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
     <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA foreign_keys=ON&quot;</span><span class="p">)</span>
     <span class="n">cursor</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="get_sessionmaker"><a class="viewcode-back" href="../../server.html#server.server.get_sessionmaker">[docs]</a><span class="k">def</span> <span class="nf">get_sessionmaker</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">timeout</span><span class="p">,</span> <span class="n">retries</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create and initialize a global :class:`sqlalchemy.orm.sessionmaker`.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        connection(str): a sqlite connection string</span>
+<span class="sd">        timeout(int): number of seconds to wait between connection retries. doubles with evert attempt.</span>
+<span class="sd">        retries(int): number of times to retry a connection to the database.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool</span>
+
+<span class="sd">    The :class:`sqlalchemy.orm.sessionmaker` object is stored in the global :attr:`DBSession`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">DBSession</span>
     <span class="c1"># this does not open a connection (yet), that will happen on create_all</span>
     <span class="n">db_engine</span> <span class="o">=</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">pool_pre_ping</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1036,48 +1277,8 @@
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../../index.html">src</a></h1>
-
-
-
-
-
-
-
-
-<h3>Navigation</h3>
-<p class="caption"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../server.html">server package</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../smtp.html">smtp package</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../usercustomize.html">usercustomize module</a></li>
-</ul>
-
-<div class="relations">
-<h3>Related Topics</h3>
-<ul>
-  <li><a href="../../index.html">Documentation overview</a><ul>
-  <li><a href="../index.html">Module code</a><ul>
-  </ul></li>
-  </ul></li>
-</ul>
-</div>
-<div id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</div>
-<script>$('#searchbox').show(0);</script>
-        </div>
-      </div>
-      <div class="clearer"></div>
-    </div>
+    <div class="clearer"></div>
+  </div>
     <div class="footer">
       &copy;2020, Michel Anders.
       

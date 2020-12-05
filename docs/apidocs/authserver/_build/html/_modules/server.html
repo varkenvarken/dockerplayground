@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>server &#8212; Authserver  documentation</title>
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Authserver</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../server.html">server package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../smtp.html">smtp package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usercustomize.html">usercustomize module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for server</h1><div class="highlight"><pre>
+<span></span><span class="c1">#  __init__.py, part of the server package</span>
+<span class="c1">#</span>
+<span class="c1">#  part of https://github.com/varkenvarken/dockerplayground</span>
+<span class="c1">#</span>
+<span class="c1">#  (c) 2020 Michel Anders (varkenvarken)</span>
+<span class="c1">#</span>
+<span class="c1">#  This program is free software; you can redistribute it and/or modify</span>
+<span class="c1">#  it under the terms of the GNU General Public License as published by</span>
+<span class="c1">#  the Free Software Foundation; either version 2 of the License, or</span>
+<span class="c1">#  (at your option) any later version.</span>
+<span class="c1">#</span>
+<span class="c1">#  This program is distributed in the hope that it will be useful,</span>
+<span class="c1">#  but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="c1">#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="c1">#  GNU General Public License for more details.</span>
+<span class="c1">#</span>
+<span class="c1">#  You should have received a copy of the GNU General Public License</span>
+<span class="c1">#  along with this program; if not, write to the Free Software</span>
+<span class="c1">#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,</span>
+<span class="c1">#  MA 02110-1301, USA.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The server module implements an authentication server.</span>
+
+<span class="sd">It is a WSGI app implemented in falcon and exposes an app variable that can be called from any WSGI server, like gunicorn.</span>
+
+<span class="sd">A typical invocation is::</span>
+
+
+<span class="sd">    gunicorn -b 0.0.0.0:8005 server:create_app()</span>
+
+
+<span class="sd">On import a sqlite database is initialized and logging is started.</span>
+
+<span class="sd">For more information see `the GitHub repo &lt;https://github.com/varkenvarken/dockerplayground/tree/master/authserver&gt;`_</span>
+
+<span class="sd">The following attributes will be initialized to the values defined in the corresponding environment variables</span>
+
+<span class="sd">Attributes:</span>
+<span class="sd">    DEBUGLEVEL: can be CRITICAL, ERROR, SUCCESS, INFO, DEBUG, TRACE. Defaults to DEBUG</span>
+<span class="sd">    DATABASE_FILE: path to database file, default to `user.db`</span>
+<span class="sd">    DATABASE_BACKOFF: number of seconds to wait between database connection retries, defaults to 1, doubles every retry.</span>
+<span class="sd">    DATABASE_RETRIES: number of times to retry a database connection. Defaults to 3.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">environ</span>
+<span class="kn">from</span> <span class="nn">sys</span> <span class="kn">import</span> <span class="n">stderr</span>
+<span class="kn">import</span> <span class="nn">falcon</span>
+<span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span> <span class="nn">.server</span> <span class="kn">import</span> <span class="n">get_sessionmaker</span><span class="p">,</span> <span class="n">add_superuser</span><span class="p">,</span> <span class="n">LoginResource</span><span class="p">,</span> <span class="n">LogoutResource</span><span class="p">,</span> <span class="n">VerifySessionResource</span><span class="p">,</span> <span class="n">RegisterResource</span><span class="p">,</span> <span class="n">ConfirmRegistrationResource</span><span class="p">,</span> <span class="n">ForgotPasswordResource</span><span class="p">,</span> <span class="n">ConfirmForgotPasswordResource</span><span class="p">,</span> <span class="n">ChoosePasswordResource</span><span class="p">,</span> <span class="n">StatsResource</span>
+
+
+<span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;DEBUGLEVEL&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;DEBUGLEVEL&#39;</span> <span class="ow">in</span> <span class="n">environ</span> <span class="k">else</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">)</span>
+
+<span class="n">DATABASE_FILE</span>    <span class="o">=</span> <span class="n">environ</span><span class="p">[</span><span class="s1">&#39;DATABASE_FILE&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;DATABASE_FILE&#39;</span> <span class="ow">in</span> <span class="n">environ</span> <span class="k">else</span> <span class="s1">&#39;user.db&#39;</span>
+<span class="n">DATABASE_BACKOFF</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;DATABASE_BACKOFF&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="s1">&#39;DATABASE_BACKOFF&#39;</span> <span class="ow">in</span> <span class="n">environ</span> <span class="k">else</span> <span class="mi">1</span>
+<span class="n">DATABASE_RETRIES</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;DATABASE_RETRIES&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="s1">&#39;DATABASE_RETRIES&#39;</span> <span class="ow">in</span> <span class="n">environ</span> <span class="k">else</span> <span class="mi">3</span>
+
+
+<div class="viewcode-block" id="create_app"><a class="viewcode-back" href="../server.html#server.create_app">[docs]</a><span class="k">def</span> <span class="nf">create_app</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An WSGI app factory.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        :class:`falcon.API`</span>
+
+<span class="sd">    When the app is created, a SQLAlchemy/sqlite database is initialized with :func:`.server.get_sessionmaker`.</span>
+
+<span class="sd">    The initialization will also create an admin user with :func:`.server.add_superuser`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># open the sqlite database and initialize a SQLAlchemy sessionmaker</span>
+    <span class="k">if</span> <span class="n">get_sessionmaker</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sqlite:///</span><span class="si">{</span><span class="n">DATABASE_FILE</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">DATABASE_BACKOFF</span><span class="p">,</span> <span class="n">DATABASE_RETRIES</span><span class="p">):</span>
+        <span class="c1"># make sure the superuser is present in the database</span>
+        <span class="k">if</span> <span class="n">add_superuser</span><span class="p">():</span>
+            <span class="c1"># initialize the falcon WSGI application</span>
+            <span class="n">app</span> <span class="o">=</span> <span class="n">falcon</span><span class="o">.</span><span class="n">API</span><span class="p">()</span>
+            <span class="c1"># a parameters in form-urlencoded bodies will be added to the request params (just like query params)</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">req_options</span><span class="o">.</span><span class="n">auto_parse_form_urlencoded</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/login&#39;</span><span class="p">,</span>                 <span class="n">LoginResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/logout&#39;</span><span class="p">,</span>                <span class="n">LogoutResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/verifysession&#39;</span><span class="p">,</span>         <span class="n">VerifySessionResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/register&#39;</span><span class="p">,</span>              <span class="n">RegisterResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/confirmregistration&#39;</span><span class="p">,</span>   <span class="n">ConfirmRegistrationResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/forgotpassword&#39;</span><span class="p">,</span>        <span class="n">ForgotPasswordResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/confirmforgotpassword&#39;</span><span class="p">,</span> <span class="n">ConfirmForgotPasswordResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/choosepassword&#39;</span><span class="p">,</span>        <span class="n">ChoosePasswordResource</span><span class="p">())</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">add_route</span><span class="p">(</span><span class="s1">&#39;/stats/</span><span class="si">{item}</span><span class="s1">&#39;</span><span class="p">,</span>          <span class="n">StatsResource</span><span class="p">())</span>
+            <span class="c1"># TODO add change password functionality</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s1">&#39;falcon app initialized&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">app</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;could not initialize falcon app&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;could not start database </span><span class="si">{</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;DATABASE_FILE&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;2020, Michel Anders.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
