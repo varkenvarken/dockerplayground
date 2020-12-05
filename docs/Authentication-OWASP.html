@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<title>Docker playground</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="icons/css/all.min.css">
+<link rel="stylesheet" href="highlight/styles/atelier-cave-light.css">
+<script src="highlight/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<body>
+
+<div class="w3-sidebar w3-bar-block w3-collapse w3-card w3-animate-right w3-xxlarge" style="width:200px;right:0;" id="mySidebar">
+  <button class="w3-bar-item w3-button w3-large w3-hide-large w3-xxlarge my-hover-purple fas fa-times" onclick="w3_close()"> </button>
+  <a href="https://varkenvarken.github.io/dockerplayground/" class="w3-bar-item w3-button my-hover-purple fas fa-home"><span class="tooltiptext">Home page</span></a>
+  <a href="https://github.com/varkenvarken/dockerplayground/wiki" class="w3-bar-item w3-button my-hover-purple fas fa-globe"><span class="tooltiptext">Wiki</span></a>
+  <a href="https://dockerplayground.michelanders.nl/" class="w3-bar-item w3-button my-hover-purple fab fa-blogger"><span class="tooltiptext">Blog</span></a>
+  <a href="https://github.com/varkenvarken/dockerplayground" class="w3-bar-item w3-button my-hover-purple fab fa-github"><span class="tooltiptext">Code</span></a>
+  <a href="https://github.com/varkenvarken/dockerplayground/projects" class="w3-bar-item w3-button my-hover-purple fas fa-clipboard-check"><span class="tooltiptext">Projects</span></a>
+</div>
+
+<div class="w3-main" style="margin-right:200px">
+<div class="my-purple">
+  <button class="w3-button my-purple w3-xlarge w3-right w3-hide-large" onclick="w3_open()">&#9776;</button>
+  <div class="w3-container">
+    <h1>Docker playground</h1><h2>Creating a general docker based web application with a mixed technology stack</h2>
+  </div>
+</div>
+
+<div class="w3-container">
+        <h2>Authentication: the OWASPP cheatsheet</h2>
+        <p><i class="fas fa-wrench"></i> Content is a work in progress</p>
+        <p>The aim of this article is to check the implementation of the authserver against
+        the best practices of the <a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html">OWAPS Authentication cheat sheet</a>
+        </p>
+        <p>We will examine each of the sections one by one, the section headers contain links to the entry on the OWASP page.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#user-ids">User IDs</a></h3>
+        <p><i class="far fa-thumbs-down"></i></p>
+        <p>We are of to a bad start here: We use email addresses as our user ids but we do not yet ensure that they are treated case insensitive everywhere, especially not on registration of a new account.
+        That is definitely something we have to fix.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#authentication-solution-and-sensitive-accounts">Authentication Solution and Sensitive Accounts</a></h3>
+        <p><i class="fas fa-smog"></i></p>
+        <p>We have a "superuser" account that can access an overview of user data and sessions. This user cannot change this data however and the database user is a different entity.
+        But because this does have access to user data, better access control should probably applied to this super user. Two factor authentication or a client certificate are worth considering here.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#implement-proper-password-strength-controls">Implement Proper Password Strength Controls</a></h3>
+        <p><i class="far fa-thumbs-up"></i></p>
+        <p>We force passwords to be between 8 and 64 characters long and have enough complexity: there should be at least 1 character
+        from each of these categories: lower case, upper case, digits, special. We also do not restrict any character to be used in a password.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#implement-secure-password-recovery-mechanism">Implement Secure Password Recovery Mechanism</a></h3>
+        <p><i class="fas fa-smog"></i></p>
+        <p>We allow users to reset their password if they forgot it and it uses one time cryptographically secure tokens that are expired and send via a side channel (email) but we need to
+        <a href="https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html">scrutinize this</a> a bit more.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#store-passwords-in-a-secure-fashion">Store Passwords in a Secure Fashion</a></h3>
+        <p><i class="far fa-thumbs-up"></i></p>
+        <p>Passwords are caclulated with <a href="https://docs.python.org/3.8/library/hashlib.html#hashlib.pbkdf2_hmac">pbkdf2_hmac</a>, using a <a href="https://en.wikipedia.org/wiki/SHA-2">sha256 hash</a>, a 16 byte salt generated with
+        <a href="https://docs.python.org/3.8/library/os.html#os.urandom">urandom()</a> and 100000 iterations.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#compare-password-hashes-using-safe-functions">Compare Password Hashes Using Safe Functions</a></h3>
+        <p><i class="far fa-thumbs-up"></i></p>
+        <p>Passwords, or rather their hashes are compared using the <a href="https://docs.python.org/3.8/library/hmac.html#hmac.compare_digest">hmac.compare_digest()</a> function.
+        The limit denial of service by very long passwords the input of POST requests are always explicitely checked against a preset length. This is true for all parameters.</p>
+        <h3></i><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#transmit-passwords-only-over-tls-or-other-strong-transport">Transmit Passwords Only Over TLS or Other Strong Transport</a></h3>
+        <p><i class="far fa-thumbs-up"></i></p>
+        <p>Authserver itself is scheme agnostic, i.e. we are not concerned with the HTTP protocol used. However the complete solution is configured to run behind a Traefik reverse proxy that enforces TLS for everything.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#require-re-authentication-for-sensitive-features">Require Re-authentication for Sensitive Features</a></h3>
+        <p><i class="fas fa-smog"></i></p>
+        <p> ... to be determined ... We have not yet implemented any options to change user profile information.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#consider-strong-transaction-authentication">Consider Strong Transaction Authentication</a></h3>
+        <p><i class="far fa-dot-circle"></i></p>
+        <p>As discussed, this might be worthwhile for the super user but not necessarily for applications with less sensitive data, so this is currently not considered for implementation.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#authentication-and-error-messages">Authentication and Error Messages</a></h3>
+        <p><i class="fas fa-smog"></i></p>
+        <p>We do return generic information that does not indicate the reason why a login or password reset, etc. fails but
+        although we use a secure digest compare method to mitigate timing attacks, the login code itself should be studied better.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#protect-against-automated-attacks">Protect Against Automated Attacks</a></h3>
+        <p><i class="far fa-thumbs-down"></i></p>
+        <p>We have as of yet not implemented lok out nor any other mechanism to defend against automated attacks.</p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#logging-and-monitoring">Logging and Monitoring</a></h3>
+        <p><i class="fas fa-smog"></i></p>
+        <p> ... to be determined ... </p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#use-of-authentication-protocols-that-require-no-password">Use of authentication protocols that require no password</a></h3>
+        <p><i class="fas fa-smog"></i></p>
+        <p> ... to be determined ... </p>
+        <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#password-managers">Password Managers</a></h3>
+        <p><i class="far fa-thumbs-up"></i></p>
+        <p>Authserver itself does not provide the HTML forms that present the user a login form, it just provides the POST actions to perform
+        the actual authentication. However, the forms presented by the other components of Dockerplayground to not prevent the use of password managers in any way.</p>
+        <div class="bumper"></div>
+</div>
+
+</div>
+<div class="footer my-purple">
+  <p><span class="nav">
+  <a href="Introduction.html"><i class="far fa-arrow-alt-circle-left"></i></a>
+  <a href="index.html"><i class="far fa-arrow-alt-circle-up"></i></a>
+  <a href="index.html"><i class="far fa-arrow-alt-circle-right"></i></a></span>
+  <span class="copyright">&copy; 2020 Michel Anders</span>
+  <span class="nav-secondary">
+  <a href="https://github.com/varkenvarken/dockerplayground/wiki"><i class="fas fa-globe"><span class="label">Wiki</span></i></a>
+  <a href="https://dockerplayground.michelanders.nl/"><i class="fab fa-blogger"><span class="label">Blog</span></i></a>
+  <a href="https://github.com/varkenvarken/dockerplayground"><i class="fab fa-github"><span class="label">Code</span></i></a>
+  <a href="https://github.com/varkenvarken/dockerplayground/projects"><i class="fas fa-clipboard-check"><span class="label">Projects</span></i></a>
+  </span>
+  </p>
+</div>
+<script>
+function w3_open() {
+  document.getElementById("mySidebar").style.display = "block";
+}
+
+function w3_close() {
+  document.getElementById("mySidebar").style.display = "none";
+}
+</script>
+
+</body>
+</html>
