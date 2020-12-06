@@ -34,9 +34,9 @@
         </p>
         <p>We will examine each of the sections one by one, the section headers contain links to the entry on the OWASP page.</p>
         <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#user-ids">User IDs</a></h3>
-        <p><i class="far fa-thumbs-down"></i></p>
-        <p>We are of to a bad start here: We use email addresses as our user ids but we do not yet ensure that they are treated case insensitive everywhere, especially not on registration of a new account.
-        That is definitely something we have to fix.</p>
+        <p><i class="far fa-thumbs-up"></i></p>
+        <p>We use email addresses as user names and we make sure that all email addresses are converted to lowercase before any processing takes place. This lowercasing uses Python's lower() function
+        which is unicode aware. Also on the database level email addresses are stored with 'nocase' collation.</p>
         <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#authentication-solution-and-sensitive-accounts">Authentication Solution and Sensitive Accounts</a></h3>
         <p><i class="fas fa-smog"></i></p>
         <p>We have a "superuser" account that can access an overview of user data and sessions. This user cannot change this data however and the database user is a different entity.
