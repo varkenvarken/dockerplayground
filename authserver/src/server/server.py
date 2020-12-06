@@ -366,7 +366,7 @@ class User(Base):
     id          = Column(Integer, primary_key=True)
     """Primary key"""
 
-    email       = Column(String(100), unique=True)
+    email       = Column(String(100, collation='NOCASE'), unique=True)
     """user name (a valid email address)"""
 
     password    = Column(String(100))
@@ -432,7 +432,7 @@ class PendingUser(Base):
     id          = Column(String(34), primary_key=True)  # holds a guid
     """primary key holds a guid"""
 
-    email       = Column(String(100), unique=True)
+    email       = Column(String(100, collation='NOCASE'), unique=True)
     """user name (a valid email address)"""
 
     name        = Column(String(100))
@@ -546,7 +546,7 @@ class LoginResource:
         if not login_login_params.check(req.params):
             logger.info('unauthorized, params do not have a proper format')
         else:
-            email = req.params['email']
+            email = req.params['email'].lower()
             session = DBSession()
             user = session.query(User).filter(User.email == email).first()
             if user:
@@ -623,7 +623,7 @@ class RegisterResource:
         else:
             params = req.params
             # TODO lowercase email everywhere
-            email = params['email']
+            email = params['email'].lower()
             user = session.query(User).filter(User.email == email).first()
             # We always return the same response (and redirect) no matter
             # whether the email is in use or not or if anything else is wrong
@@ -700,7 +700,7 @@ class ForgotPasswordResource:
         if not login_forgot_params.check(params):
             logger.info('unauthorized, login forgot params do not have proper format')
         else:
-            email = params['email']
+            email = params['email'].lower()
             user = session.query(User).filter(User.email == email).first()
 
             user = session.query(User).filter(User.email == email).first()
