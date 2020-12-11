@@ -67,9 +67,9 @@
         <p><i class="far fa-dot-circle"></i></p>
         <p>As discussed, this might be worthwhile for the super user but not necessarily for applications with less sensitive data, so this is currently not considered for implementation.</p>
         <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#authentication-and-error-messages">Authentication and Error Messages</a></h3>
-        <p><i class="fas fa-smog"></i></p>
-        <p>We do return generic information that does not indicate the reason why a login or password reset, etc. fails but
-        although we use a secure digest compare method to mitigate timing attacks, the login code itself should be studied better.</p>
+        <p><i class="far fa-thumbs-up"></i></p>
+        <p>We do return generic information that does not indicate the reason why a login or password reset, etc. fails and
+        on top of a secure digest compare method to mitigate timing attacks, we <a href="https://dockerplayground.michelanders.nl/2020/12/timing-attacks-on-login.html">added code to equalize timing</a> for timing sensitive routines.</p>
         <h3><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#protect-against-automated-attacks">Protect Against Automated Attacks</a></h3>
         <p><i class="far fa-thumbs-down"></i></p>
         <p>We have as of yet not implemented lok out nor any other mechanism to defend against automated attacks.</p>
