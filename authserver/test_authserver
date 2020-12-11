@@ -65,8 +65,12 @@ unset COVERAGE_PROCESS_START
 
 # perform the functional tests
 python functional_tests_authserver.py
-
-
+if [ $? -eq 0 ]
+then
+  echo "functional tests              : pass"
+else
+  echo "functional tests              : fail"
+fi
 echo tests done, removing server
 kill %1
 sleep 1

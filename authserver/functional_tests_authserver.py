@@ -1,5 +1,8 @@
 import os
-from sys import stderr
+from sys import stderr, exit
+from time import time
+from collections import defaultdict as dd
+from statistics import stdev, fmean
 
 import requests
 from regex import fullmatch, search
@@ -128,6 +131,9 @@ def fetch(re, filename, group=0):
     return result
 
 
+MAXD = .05
+ITERATIONS = 100
+
 localvars = {}
 
 tests = [
@@ -190,13 +196,66 @@ tests = [
     rq('provide new password', 'POST', f'{host}/choosepassword', 303, variables=localvars,
         params=dict(resetid='{confirmationid}', password=ADMIN_PASSWORD, password2=ADMIN_PASSWORD, choose='Choose'),
         checkheaders=[("reason", "See Other")]),
+
+    rq('check /login (time test) user!', 'POST', f'{host}/login', 303,
+        params=dict(email='nonexistinguser@example.org', password=ADMIN_PASSWORD, login='Login'),
+        checkheaders=[("Location", rf"{LOGINSCREEN}\?failed")],
+        annotations={'checkwait': (r'waiting for (-?\d+\.\d+) seconds', SERVERLOG, 1), 'iterate': ITERATIONS, 'label': 'user'}),
+
+    rq('check /login (time test) pswd!', 'POST', f'{host}/login', 303,
+        params=dict(email=ADMIN_USER, password='Secr3t!!@ddd', login='Login'),
+        checkheaders=[("Location", rf"{LOGINSCREEN}\?failed")],
+        annotations={'checkwait': (r'waiting for (-?\d+\.\d+) seconds', SERVERLOG, 1), 'iterate': ITERATIONS, 'label': 'password'}),
+
 ]
 
+failed = False
 cookies = None
+elapsed = dd(float)
+expected = dd(float)
+deviation = dd(float)
 for t in tests:
-    result = t.check(cookies, extraparams={'sessionid': cookies['session']} if 'sessioncookie-sessionid' in t.annotations else None)
-    print(t)
-    if 'keepsession' in t.annotations:
-        cookies = {'session': t.getcookievalue('session')}
-    if 'confirmationid' in t.annotations:
-        localvars['confirmationid'] = fetch(*t.annotations['confirmationid'])
+    n = 1
+    sumval = 0.0
+    sumtime = []
+    if 'iterate' in t.annotations:
+        n = t.annotations['iterate']
+    for i in range(n):
+        start = time()
+        result = t.check(cookies, extraparams={'sessionid': cookies['session']} if 'sessioncookie-sessionid' in t.annotations else None)
+        sumtime.append(time() - start)
+        print(f'{i+1:3d}/{n:3d}', t, end="\r")
+        if not result:
+            failed = True
+        if 'keepsession' in t.annotations:
+            cookies = {'session': t.getcookievalue('session')}
+        if 'confirmationid' in t.annotations:
+            localvars['confirmationid'] = fetch(*t.annotations['confirmationid'])
+        if 'checkwait' in t.annotations:
+            sumval += float(fetch(*t.annotations['checkwait']))
+    print()
+    if 'iterate' in t.annotations:
+        mean_elapsed = fmean(sumtime)
+        stdev_elapsed = stdev(sumtime)
+        mean_expected = sumval / n
+        if 'label' in t.annotations:
+            elapsed[t.annotations['label']] += mean_elapsed
+            expected[t.annotations['label']] += mean_expected
+            deviation[t.annotations['label']] += stdev_elapsed
+u = elapsed['user']
+p = elapsed['password']
+du = deviation['user']
+dp = deviation['password']
+eu = expected['user']
+ep = expected['password']
+d = u - p
+dd = du + dp
+deu = abs(u - eu)
+dep = abs(p - ep)
+
+if d > dd:
+    print(f'failed: variance in timing smaller than difference between non existing user and wrong password {d:.6f} > {dd:.6f}')
+    failed = True
+
+if failed:
+    exit(1)

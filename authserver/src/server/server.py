@@ -63,7 +63,8 @@ import os
 from smtp import fetch_smtp_params, mail
 from decimal import Decimal
 import json
-from time import sleep
+from time import sleep, time
+from contextlib import contextmanager
 
 import falcon
 
@@ -78,6 +79,21 @@ from regex import compile  # we use an alternative regular expression library he
 from regex.regex import Pattern
 
 logger.info(usercustomize.coverage)
+
+
+@contextmanager
+def timing_equalizer(delta):
+    """
+    Make sure that code in context takes at least `delta` seconds.
+    """
+    mark = time() + delta
+    try:
+        yield mark
+    finally:
+        wait = mark - time()
+        logger.info(f'waiting for {wait} seconds')
+        if wait > 0:
+            sleep(wait)
 
 
 def number(variable, default):
@@ -543,37 +559,40 @@ class LoginResource:
         """
         logger.info('LoginResource')
         global DBSession
+        resp.status = falcon.HTTP_303
+        resp.location = f'{LOGINSCREEN}?failed'
         if not login_login_params.check(req.params):
             logger.info('unauthorized, params do not have a proper format')
         else:
             email = req.params['email'].lower()
             session = DBSession()
             user = session.query(User).filter(User.email == email).first()
-            if user:
-                logger.info(f"valid user found {user.email}")
-                if checkpassword(req.params['password'], user.password):
-                    # self.redirect_header("Login succeeded", APPLICATION)
-                    for s in session.query(Session).filter(Session.userid == user.id):
-                        session.delete(s)
-                    now = datetime.now()
-                    softlimit = now + timedelta(minutes=SOFTTIMEOUT)
-                    hardlimit = now + timedelta(minutes=HARDTIMEOUT)
-                    ns = Session(userid=user.id, id=guid().hex, created=now, softlimit=softlimit, hardlimit=hardlimit)
-                    session.add(ns)
-                    session.commit()
-                    resp.set_cookie('session', ns.id, domain=DOMAIN, path='/', http_only=False)
-                    # falcon 3 supports samesite argument in set_cookie but falcon 2 doesn't
-                    resp._cookies['session']['samesite'] = 'Lax'
-                    logger.success(f'user succesfully authenticated {user.email}')
-                    resp.status = falcon.HTTP_303
-                    resp.location = APPLICATION
-                    return
+            # make sure whichever path we take in the authentication
+            # takes the same amount of time. This also functions as a
+            # crude rate limiting algorithm because now logging takes
+            # at least 1 second (although our WSGI app may have multiple
+            # forked workers and/or threads and this limit is per thread)
+            with timing_equalizer(1.0):
+                if user:
+                    logger.info(f"valid user found {user.email}")
+                    if checkpassword(req.params['password'], user.password):
+                        for s in session.query(Session).filter(Session.userid == user.id):
+                            session.delete(s)
+                        now = datetime.now()
+                        softlimit = now + timedelta(minutes=SOFTTIMEOUT)
+                        hardlimit = now + timedelta(minutes=HARDTIMEOUT)
+                        ns = Session(userid=user.id, id=guid().hex, created=now, softlimit=softlimit, hardlimit=hardlimit)
+                        session.add(ns)
+                        session.commit()
+                        resp.set_cookie('session', ns.id, domain=DOMAIN, path='/', http_only=False)
+                        # falcon 3 supports samesite argument in set_cookie but falcon 2 doesn't
+                        resp._cookies['session']['samesite'] = 'Lax'
+                        logger.success(f'user succesfully authenticated {user.email}')
+                        resp.location = APPLICATION
+                    else:
+                        logger.info(f'user authentication failed for known user {user.email}')
                 else:
-                    logger.info(f'user authentication failed for known user {user.email}')
-            else:
-                logger.info(f'user authentication failed for unknown user {email}')
-        resp.status = falcon.HTTP_303
-        resp.location = f'{LOGINSCREEN}?failed'
+                    logger.info(f'user authentication failed for unknown user {email}')
 
 
 class RegisterResource:
@@ -621,38 +640,39 @@ class RegisterResource:
         if not login_register_params.check(req.params):
             logger.info('unauthorized, login register params do not have proper format')
         else:
-            params = req.params
-            # TODO lowercase email everywhere
-            email = params['email'].lower()
-            user = session.query(User).filter(User.email == email).first()
-            # We always return the same response (and redirect) no matter
-            # whether the email is in use or not or if anything else is wrong
-            # this is to prevent indexing, i.e. checking which email addresses are in use
-            if params['password'] != params['password2']:
-                logger.info("passwords are not identical")
-            elif user:
-                logger.info(f'email already in use {user.email}')
-            else:
-                user = session.query(PendingUser).filter(PendingUser.email == email).first()
-                if user:  # we delete previous pending registration to prevent database overfilling
-                    logger.info('previous registration not yet confirmed')
-                    session.delete(user)
+            with timing_equalizer(3.0):
+                params = req.params
+                # TODO lowercase email everywhere
+                email = params['email'].lower()
+                user = session.query(User).filter(User.email == email).first()
+                # We always return the same response (and redirect) no matter
+                # whether the email is in use or not or if anything else is wrong
+                # this is to prevent indexing, i.e. checking which email addresses are in use
+                if params['password'] != params['password2']:
+                    logger.info("passwords are not identical")
+                elif user:
+                    logger.info(f'email already in use {user.email}')
+                else:
+                    user = session.query(PendingUser).filter(PendingUser.email == email).first()
+                    if user:  # we delete previous pending registration to prevent database overfilling
+                        logger.info('previous registration not yet confirmed')
+                        session.delete(user)
+                        session.commit()
+                    else:
+                        logger.info('first registration')
+                    pu = PendingUser(id=guid().hex, email=email, password=newpassword(params['password']), name=params['name'])
+                    session.add(pu)
                     session.commit()
-                else:
-                    logger.info('first registration')
-                pu = PendingUser(id=guid().hex, email=email, password=newpassword(params['password']), name=params['name'])
-                session.add(pu)
-                session.commit()
-                # TODO limit number of emails sent to same address
-                user = session.query(PendingUser).filter(PendingUser.email == email).first()
-                logger.info(f"sending confirmation mail to {user.email} ({user.name})")
-                logger.info(f"confirmation id: {pu.id}")
-                u, p, s = fetch_smtp_params()
-                logger.info(f"mailer {u}@{s} (password not shown ...)")
-                if mail(EMAILTEMPLATE_REGISTER.format(name=user.name, website=WEBSITE, link=f"{CONFIRMREGISTRATION}?confirmationid={pu.id}"), "Confirm your registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
-                    logger.success('mail successfully sent')
-                else:
-                    logger.error('mail not sent')
+                    # TODO limit number of emails sent to same address
+                    user = session.query(PendingUser).filter(PendingUser.email == email).first()
+                    logger.info(f"sending confirmation mail to {user.email} ({user.name})")
+                    logger.info(f"confirmation id: {pu.id}")
+                    u, p, s = fetch_smtp_params()
+                    logger.info(f"mailer {u}@{s} (password not shown ...)")
+                    if mail(EMAILTEMPLATE_REGISTER.format(name=user.name, website=WEBSITE, link=f"{CONFIRMREGISTRATION}?confirmationid={pu.id}"), "Confirm your registration", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
+                        logger.success('mail successfully sent')
+                    else:
+                        logger.error('mail not sent')
 
 
 class ForgotPasswordResource:
@@ -700,24 +720,25 @@ class ForgotPasswordResource:
         if not login_forgot_params.check(params):
             logger.info('unauthorized, login forgot params do not have proper format')
         else:
-            email = params['email'].lower()
-            user = session.query(User).filter(User.email == email).first()
+            with timing_equalizer(3.0):
+                email = params['email'].lower()
+                user = session.query(User).filter(User.email == email).first()
 
-            user = session.query(User).filter(User.email == email).first()
-            if not user:  # no user found but we are not providing this information
-                logger.info(f"no user found {email}")
-            else:
-                logger.info(f"password reset request received for existing user {email}")
-                pr = PasswordReset(id=guid().hex, userid=user.id)
-                session.add(pr)
-                session.commit()
-                logger.info(f"sending confirmation mail to {user.email} ({user.name})")
-                logger.info(f"reset confirmation id: {pr.id}")
-                u, p, s = fetch_smtp_params()
-                if mail(EMAILTEMPLATE_FORGOTPASSWORD.format(name=user.name, website=WEBSITE, link=f"{RESETPASSWORD}?confirmationid={pr.id}"), "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
-                    logger.success('mail successfully sent')
+                user = session.query(User).filter(User.email == email).first()
+                if not user:  # no user found but we are not providing this information
+                    logger.info(f"no user found {email}")
                 else:
-                    logger.error('mail not sent')
+                    logger.info(f"password reset request received for existing user {email}")
+                    pr = PasswordReset(id=guid().hex, userid=user.id)
+                    session.add(pr)
+                    session.commit()
+                    logger.info(f"sending confirmation mail to {user.email} ({user.name})")
+                    logger.info(f"reset confirmation id: {pr.id}")
+                    u, p, s = fetch_smtp_params()
+                    if mail(EMAILTEMPLATE_FORGOTPASSWORD.format(name=user.name, website=WEBSITE, link=f"{RESETPASSWORD}?confirmationid={pr.id}"), "Password change request", fromaddr=u, toaddr=user.email, smtp=s, username=u, password=p):
+                        logger.success('mail successfully sent')
+                    else:
+                        logger.error('mail not sent')
 
 
 class VerifySessionResource:
@@ -905,20 +926,21 @@ class ChoosePasswordResource:
         if not newpassword_params.check(req.params):
             logger.info('bad request: malformed parameters')
         else:
-            params = req.params
-            if params['password'] != params['password2']:
-                logger.info("passwords are not identical")
-            else:
-                for resetuser in session.query(PasswordReset).filter(PasswordReset.id == params['resetid']):
-                    logger.success(f'password reset for user {resetuser.user.email}')
-                    user = resetuser.user
-                    user.password = newpassword(params['password'])
-                    resp.status = falcon.HTTP_303
-                    resp.location = f"{LOGINSCREEN}?resetsuccessful"
-                    session.delete(resetuser)
-                    session.commit()
-                    return
-                logger.info('resetid not found or expired')
+            with timing_equalizer(1.0):
+                params = req.params
+                if params['password'] != params['password2']:
+                    logger.info("passwords are not identical")
+                else:
+                    for resetuser in session.query(PasswordReset).filter(PasswordReset.id == params['resetid']):
+                        logger.success(f'password reset for user {resetuser.user.email}')
+                        user = resetuser.user
+                        user.password = newpassword(params['password'])
+                        resp.status = falcon.HTTP_303
+                        resp.location = f"{LOGINSCREEN}?resetsuccessful"
+                        session.delete(resetuser)
+                        session.commit()
+                        return
+                    logger.info('resetid not found or expired')
 
 
 class StatsResource:
