@@ -8,3 +8,4 @@ SQLAlchemy
 falcon-autocrud
 falcon-prometheus
 requests
+loguru

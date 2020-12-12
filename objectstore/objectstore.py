@@ -21,6 +21,7 @@
 
 
 import sys
+import json
 from datetime import datetime
 from base64 import b64decode, b64encode
 import falcon
@@ -28,6 +29,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, LargeBinary
 from falcon_autocrud.resource import CollectionResource, SingleResource
 import requests
+from loguru import logger
+
+logger.remove()
+logger.add(sys.stderr, level='DEBUG')
 
 
 def convert2b64(ob):
@@ -153,7 +158,7 @@ class BookCollectionResource(CollectionResource, VerificationMixin):
         super().on_get(req, resp)
 
     def get_filter(self, req, resp, query, *args, **kwargs):
-        print(f'id: {self.q_ownerid} name:{self.q_name} super:{self.q_superuser}', flush=True)
+        logger.info(f'id: {self.q_ownerid} name:{self.q_name} super:{self.q_superuser}')
         if self.q_superuser:
             return query
         return query.filter(Book.owner == self.q_ownerid)
@@ -168,8 +173,14 @@ class BookResource(SingleResource, VerificationMixin):
     methods = ['GET', 'PUT', 'DELETE']
 
     def check_ownerid(self, req):
-        if ('doc' in req.context) and ('owner' in req.context['doc']) and (req.context['doc']['owner'] == self.q_ownerid):
+        if ('doc' in req.context) and ('owner' in req.context['doc']) and (int(req.context['doc']['owner']) == self.q_ownerid):
             return
+        #doc = json.loads(req.context['doc'])
+        #logger.info(doc)
+        #logger.info(type(doc))
+        #if ('owner' in doc):
+        #    if (int(doc['owner']) == self.q_ownerid) or self.q_superuser:
+        #        return
         raise falcon.HTTPUnauthorized('/auth/login')
 
     def on_get(self, req, resp):
@@ -312,13 +323,13 @@ if __name__ == '__main__':
             Base.metadata.create_all(db_engine)
             break
         except:
-            print(f"Database connection refused trial {i}/{retries}, now waiting {timeout} seconds ...")
+            logger.info(f"Database connection refused trial {i}/{retries}, now waiting {timeout} seconds ...")
             sleep(timeout)
             waited += timeout
             timeout *= 2
             continue
     else:
-        print(f"No database connections after {retries} tries ({waited} seconds)")
+        logger.error(f"No database connections after {retries} tries ({waited} seconds)")
         exit(111)
 
     # this part is both middleware and resource so we keep a variable for routing
@@ -338,5 +349,5 @@ if __name__ == '__main__':
     app.add_route('/metrics', prometheus)
 
     with make_server('', args.port, app) as httpd:
-        print(f"Serving on port {args.port} ...", file=sys.stderr)
+        logger.info(f"Serving on port {args.port} ...")
         httpd.serve_forever()
