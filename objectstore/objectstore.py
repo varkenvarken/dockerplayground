@@ -21,12 +21,12 @@
 
 
 import sys
-import json
 from datetime import datetime
 from base64 import b64decode, b64encode
 import falcon
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean, LargeBinary
+from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean
+from sqlalchemy.dialects.mysql import LONGBLOB
 from falcon_autocrud.resource import CollectionResource, SingleResource
 import requests
 from loguru import logger
@@ -172,36 +172,37 @@ class BookResource(SingleResource, VerificationMixin):
     model = Book
     methods = ['GET', 'PUT', 'DELETE']
 
-    def check_ownerid(self, req):
-        if ('doc' in req.context) and ('owner' in req.context['doc']) and (int(req.context['doc']['owner']) == self.q_ownerid):
+    def check_ownerid(self, id):
+        if (int(id) == self.q_ownerid) or self.q_superuser:
             return
-        #doc = json.loads(req.context['doc'])
-        #logger.info(doc)
-        #logger.info(type(doc))
-        #if ('owner' in doc):
-        #    if (int(doc['owner']) == self.q_ownerid) or self.q_superuser:
-        #        return
         raise falcon.HTTPUnauthorized('/auth/login')
 
-    def on_get(self, req, resp):
+    def check_ownerid_put(self, req):
+        logger.info(req.context)
+        if ('doc' in req.context) and ('owner' in req.context['doc']) and ((int(req.context['doc']['owner']) == self.q_ownerid) or self.q_superuser):
+            return
+        raise falcon.HTTPUnauthorized('/auth/login')
+
+    def on_get(self, req, resp, *args, **kwargs):
         self.verify_session(req, resp)
+        self.check_ownerid(kwargs['id'])
         super().on_get(req, resp)
 
     def on_put(self, req, resp, *args, **kwargs):
         self.verify_session(req, resp)
-        self.check_ownerid(req)
+        self.check_ownerid_put(req)
         super().on_put(req, resp, *args, **kwargs)
 
     def on_delete(self, req, resp, *args, **kwargs):
         self.verify_session(req, resp)
-        self.check_ownerid(req)
+        self.check_ownerid(kwargs['id'])
         super().on_delete(req, resp, *args, **kwargs)
 
 
 class Image(Base):
     __tablename__ = 'images'
     id         = Column(Integer, primary_key=True)
-    data       = Column(LargeBinary, nullable=False)
+    data       = Column(LONGBLOB(length=2**22), nullable=False)  # 4 MB
     type       = Column(String(10), nullable=True)   # jpg, png, ... might be null or empty
     annotation = Column(String(100), nullable=True)   # whatever you like
     created    = Column(DateTime(), default=datetime.now())
