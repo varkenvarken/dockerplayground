@@ -15,6 +15,8 @@ export DATABASE_RETRIES=3
 export DATABASE_BACKOFF=1
 export ADMIN_USER=test@example.org
 export ADMIN_PASSWORD=s3Cret!!
+export CRAWLER_USER=crawler@example.org
+export CRAWLER_PASSWORD=s3Cret!!
 
 # these are designed to fail: we don't send mail actually
 export SMTP_USER=user
