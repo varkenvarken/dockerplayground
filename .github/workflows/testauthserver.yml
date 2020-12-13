@@ -24,6 +24,7 @@ jobs:
       run: |
         make testauthserver
     - name: Archive logfile
+      if: ${{ always() }}
       uses: actions/upload-artifact@v2
       with:
         name: logfile
