@@ -1126,7 +1126,7 @@ def fetch_admin_params():
     Enviroment variables overrule variables in files.
 
     Returns:
-        tuple(admin_user, admin_password)
+        tuple(admin_user, admin_password, crawler_user, crawler_password)
 
     Module level attributes referenced:
 
@@ -1134,10 +1134,14 @@ def fetch_admin_params():
     - :attr:`ADMIN_USER` username (valid email address) of super user, will override ADMIN_USER_FILE
     - :attr:`ADMIN_PASSWORD_FILE` filename of file containing super user password in plaintext
     - :attr:`ADMIN_PASSWORD` super user password in plaintext, will override ADMIN_PASSWORD_FILE
+    - :attr:`CRAWLER_USER_FILE` filename of file containing crawler user username (valid email address)
+    - :attr:`CRAWLER_USER` username (valid email address) of crawler user, will override CRAWLER_USER_FILE
+    - :attr:`CRAWLER_PASSWORD_FILE` filename of file containing crawler user password in plaintext
+    - :attr:`CRAWLER_PASSWORD` super crawler password in plaintext, will override CRAWLER_PASSWORD_FILE
 
     """
     env = {}
-    for var in ('ADMIN_USER', 'ADMIN_PASSWORD'):
+    for var in ('ADMIN_USER', 'ADMIN_PASSWORD', 'CRAWLER_USER', 'CRAWLER_PASSWORD'):
         if var in os.environ and os.environ[var].strip() != '':
             env[var] = os.environ[var]
         else:
@@ -1148,23 +1152,26 @@ def fetch_admin_params():
             else:
                 raise KeyError(f'{var} and {varf} not defined in environment')
 
-    return env['ADMIN_USER'], env['ADMIN_PASSWORD']
+    return env['ADMIN_USER'], env['ADMIN_PASSWORD'], env['CRAWLER_USER'], env['CRAWLER_PASSWORD']
 
 
-def add_superuser():
+def add_superusers():
     """
     Add superuser account to :class:`User` table.
 
     Will remove any user account with the same name along with any associated session.
     """
     global DBSession
-    username, password = fetch_admin_params()
+    username, password, crawler_name, crawler_password = fetch_admin_params()
     session = DBSession()
-    for s in session.query(User).filter(User.email == username):
-        logger.info(f"deleting user {s.email}")
+    for s in session.query(User).filter(User.superuser):
+        logger.info(f"deleting super user {s.email}")
         session.delete(s)
     session.commit()
     ns = User(email=username, password=newpassword(password), name='Administrator', superuser=True)
+    session.add(ns)
+    logger.info(f"adding admin user {ns.email}")
+    ns = User(email=crawler_name, password=newpassword(crawler_password), name='Crawler', superuser=True)
     session.add(ns)
     logger.info(f"adding admin user {ns.email}")
     session.commit()

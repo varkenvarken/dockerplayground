@@ -47,7 +47,7 @@ from os import environ
 from sys import stderr
 import falcon
 from loguru import logger
-from .server import get_sessionmaker, add_superuser, LoginResource, LogoutResource, VerifySessionResource, RegisterResource, ConfirmRegistrationResource, ForgotPasswordResource, ConfirmForgotPasswordResource, ChoosePasswordResource, StatsResource
+from .server import get_sessionmaker, add_superusers, LoginResource, LogoutResource, VerifySessionResource, RegisterResource, ConfirmRegistrationResource, ForgotPasswordResource, ConfirmForgotPasswordResource, ChoosePasswordResource, StatsResource
 
 
 logger.remove()
@@ -72,7 +72,7 @@ def create_app():
     # open the sqlite database and initialize a SQLAlchemy sessionmaker
     if get_sessionmaker(f"sqlite:///{DATABASE_FILE}", DATABASE_BACKOFF, DATABASE_RETRIES):
         # make sure the superuser is present in the database
-        if add_superuser():
+        if add_superusers():
             # initialize the falcon WSGI application
             app = falcon.API()
             # a parameters in form-urlencoded bodies will be added to the request params (just like query params)
