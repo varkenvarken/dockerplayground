@@ -14,6 +14,10 @@ secrets:
         file: secrets/adminuser.txt
     admin-password:
         file: secrets/adminpassword.txt
+    crawler-user:
+        file: secrets/crawleruser.txt
+    crawler-password:
+        file: secrets/crawlerpassword.txt
 
 # define services (we pass .env to have the same environment vars inside the compose file as in the containers
 services:
@@ -137,6 +141,8 @@ services:
       - SMTP_PASSWORD
       - ADMIN_USER
       - ADMIN_PASSWORD
+      - CRAWLER_USER
+      - CRAWLER_PASSWORD
       - DOMAIN
       - APPLICATION
       - LOGINSCREEN
@@ -147,6 +153,8 @@ services:
       - SMTP_PASSWORD_FILE=/run/secrets/smtp-password
       - ADMIN_USER_FILE=/run/secrets/admin-user
       - ADMIN_PASSWORD_FILE=/run/secrets/admin-password
+      - CRAWLER_USER_FILE=/run/secrets/crawler-user
+      - CRAWLER_PASSWORD_FILE=/run/secrets/crawler-password
       - DATABASE_FILE=/var/lib/sqlite/user.db
       - DATABASE_BACKOFF=1
       - DATABASE_RETRIES=3
@@ -157,6 +165,8 @@ services:
       - smtp-password
       - admin-user
       - admin-password
+      - crawler-user
+      - crawler-password
     volumes:
       - "userdata:/var/lib/sqlite"
     restart: on-failure
@@ -172,6 +182,24 @@ services:
       - "traefik.http.routers.authserver.middlewares=authprefix"
       - "traefik.http.middlewares.authprefix.stripprefix.prefixes=/auth"
       - "traefik.http.services.authserver.loadbalancer.server.port=8005"
+
+  crawler:
+    image: crawler
+    networks:
+      - appnetwork
+    environment: # if environment variables are set they override the files
+      - CRAWLER_USER
+      - CRAWLER_PASSWORD
+      - CRAWLER_USER_FILE=/run/secrets/crawler-user
+      - CRAWLER_PASSWORD_FILE=/run/secrets/crawler-password
+    env_file: .env
+    secrets:
+      - crawler-user
+      - crawler-password
+    restart: on-failure
+    build:
+      context: .
+      dockerfile: crawler/Dockerfile
 
 networks:
   appnetwork:

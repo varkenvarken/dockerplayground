@@ -1,8 +1,8 @@
 FROM python:3
 
-RUN python -m pip install requests
+RUN python -m pip install requests loguru
 
-ENTRYPOINT ["python", "./crawler.py", "-r", "http://objectstore:5555"]
+ENTRYPOINT ["python", "./crawler.py"]
 
 WORKDIR /usr/src/app
 
