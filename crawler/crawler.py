@@ -209,7 +209,7 @@ def updatebook(bookid, data, sessionid):
 
 def addcoverart(data, type, sessionid):
     try:
-        response = requests.post(f"{OBJECTSTORE}/images", json={'data': b64encode(data), 'type': type}, cookies={'session': sessionid}, verify=False)
+        response = requests.post(f"{OBJECTSTORE}/images", json={'data': b64encode(data).decode(), 'type': type}, cookies={'session': sessionid}, verify=False)
         logger.info(f'status {response.status_code}')
         logger.info(response.text)
         return json.loads(response.text)['data']['id']
