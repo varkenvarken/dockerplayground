@@ -23,6 +23,11 @@ jobs:
     - name: Run tests
       run: |
         make testauthserver
+    - name: Archive logfile
+      uses: actions/upload-artifact@v2
+      with:
+        name: logfile
+        path: authserver/logfile
     - name: Archive code coverage results
       uses: actions/upload-artifact@v2
       with:
