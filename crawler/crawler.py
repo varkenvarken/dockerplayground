@@ -64,8 +64,10 @@ def getvar(variable, default='<unknown>'):
         return os.environ[variable]
     return default
 
+
 AUTHSERVER = getvar('AUTHSERVER', 'http://dockerplayground_authserver_1:8005')
 OBJECTSTORE = getvar('OBJECTSTORE', 'http://dockerplayground_objectstore_1:5555')
+
 
 def datetimeencoder(obj):
     if isinstance(obj, datetime):
@@ -135,6 +137,7 @@ def getbookstoupdate(sessionid):
         logger.error(f'could not connect to objectstore at {OBJECTSTORE}/books')
     return None
 
+
 def getbookdatafromopenlibrary(isbn):
     logger.info(f'isbn {isbn}')
     response = requests.get(f"https://openlibrary.org/isbn/{isbn}.json")
@@ -142,6 +145,7 @@ def getbookdatafromopenlibrary(isbn):
     if response.status_code == 404:
         return None
     return response.json()
+
 
 def getworkdatafromopenlibrary(isbn):
     logger.info(f'isbn {isbn}')
@@ -182,7 +186,6 @@ def getauthordatafromopenlibrary(book):
         logger.info('no author found')
 
 
-
 def getcoverfromopenlibrary(coverid):
     logger.info(f'coverid {coverid}')
     response = requests.get(f"https://covers.openlibrary.org/b/id/{coverid}-L.jpg")
@@ -204,7 +207,7 @@ def updatebook(bookid, data, sessionid):
     return None
 
 
-def addcoverart(endpoint, data, type, sessionid):
+def addcoverart(data, type, sessionid):
     try:
         response = requests.post(f"{OBJECTSTORE}/images", json={'data': b64encode(data), 'type': type}, cookies={'session': sessionid}, verify=False)
         logger.info(f'status {response.status_code}')
