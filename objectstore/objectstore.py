@@ -27,6 +27,7 @@ import falcon
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, Boolean
 from sqlalchemy.dialects.mysql import LONGBLOB
+from sqlalchemy.orm import sessionmaker
 from falcon_autocrud.resource import CollectionResource, SingleResource
 import requests
 from loguru import logger
@@ -173,7 +174,11 @@ class BookResource(SingleResource, VerificationMixin):
     methods = ['GET', 'PUT', 'DELETE']
 
     def check_ownerid(self, id):
-        if (int(id) == self.q_ownerid) or self.q_superuser:
+        global DBSession
+        session = DBSession()
+        book = session.query(Book).filter(Book.id == id, Book.owner == self.q_ownerid).first()
+        logger.info(f'id {id} q_owner {self.q_ownerid} # {bool(book)}')
+        if book or self.q_superuser:
             return
         raise falcon.HTTPUnauthorized('/auth/login')
 
@@ -314,6 +319,9 @@ if __name__ == '__main__':
 
     # this does not open a connection (yet), that will happen on create_all
     db_engine = create_engine(connection, pool_pre_ping=True)       # 'sqlite:////absolute/path/to/foo.db'
+
+    global DBSession
+    DBSession = sessionmaker(bind=db_engine)
 
     # we try to connect to the database several times
     waited = 0
