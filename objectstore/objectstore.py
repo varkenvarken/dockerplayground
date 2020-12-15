@@ -149,6 +149,18 @@ class VerificationMixin:
         resp.set_header('Location', '/books/login.html')
         raise falcon.HTTPUnauthorized('')  # this does NOT redirect, but returns this as json
 
+    def verify_input(self, req):
+        if 'doc' in req.context:
+            logger.debug(req.context['doc'])
+            if 'owner' in req.context['doc']:
+                value = req.context['doc']['owner']
+                if len(value) > 10:
+                    raise falcon.HTTPBadRequest()
+
+
+# note that there currently is no input verification on any of the fields
+# so anybody can store all kinds of junk right now
+# The reverse is also try, we do not bleach content we hand back.
 
 class BookCollectionResource(CollectionResource, VerificationMixin):
     model = Book
@@ -166,6 +178,7 @@ class BookCollectionResource(CollectionResource, VerificationMixin):
 
     def before_post(self, req, resp, db_session, resource, *args, **kwargs):
         self.verify_session(req, resp)
+        self.verify_input(req)
         resource.owner = int(self.q_ownerid)
 
 
@@ -195,6 +208,7 @@ class BookResource(SingleResource, VerificationMixin):
 
     def on_put(self, req, resp, *args, **kwargs):
         self.verify_session(req, resp)
+        self.verify_input(req)
         self.check_ownerid_put(req)
         super().on_put(req, resp, *args, **kwargs)
 
@@ -204,6 +218,7 @@ class BookResource(SingleResource, VerificationMixin):
         super().on_delete(req, resp, *args, **kwargs)
 
 
+# images should be owned as well (by crawler?)
 class Image(Base):
     __tablename__ = 'images'
     id         = Column(Integer, primary_key=True)
