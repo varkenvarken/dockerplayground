@@ -7,5 +7,6 @@ falcon
 SQLAlchemy
 falcon-autocrud
 falcon-prometheus
+regex
 requests
 loguru
