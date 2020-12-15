@@ -31,9 +31,36 @@ from sqlalchemy.orm import sessionmaker
 from falcon_autocrud.resource import CollectionResource, SingleResource
 import requests
 from loguru import logger
+from regex import compile
+
 
 logger.remove()
 logger.add(sys.stderr, level='DEBUG')
+
+
+def max_body(limit):
+    """
+    A :func:`falcon.before` hook to limit the size of request body.
+
+    Arguments:
+        limit(int): maximum size in bytes of the request body
+
+    Raises:
+        :exception:`falcon.HTTPPayloadTooLarge` when the body of the request exceeds `limit`
+
+    Returns:
+        a hook function
+    """
+    def hook(req, resp, resource, params):
+        length = req.content_length
+        if length is not None and length > limit:
+            msg = ('The size of the request is too large. The body must not '
+                   'exceed ' + str(limit) + ' bytes in length.')
+
+            raise falcon.HTTPPayloadTooLarge(
+                'Request body is too large', msg)
+
+    return hook
 
 
 def convert2b64(ob):
@@ -131,6 +158,9 @@ class Book(Base):
 
 class VerificationMixin:
 
+    legaltitle = compile(r"[^\p{C}]+")  # any printable characters
+    legalowner = compile(r"\d+")    # any decimal digits
+
     def verify_session(self, req, resp):
         self.q_ownerid = None
         self.q_name = None
@@ -154,7 +184,11 @@ class VerificationMixin:
             logger.debug(req.context['doc'])
             if 'owner' in req.context['doc']:
                 value = req.context['doc']['owner']
-                if len(value) > 10:
+                if len(value) > 10 or not self.legalowner.fullmatch(value):
+                    raise falcon.HTTPBadRequest()
+            if 'title' in req.context['doc']:
+                value = req.context['doc']['owner']
+                if len(value) > 100 or not self.legaltitle.fullmatch(value):
                     raise falcon.HTTPBadRequest()
 
 
@@ -166,6 +200,7 @@ class BookCollectionResource(CollectionResource, VerificationMixin):
     model = Book
     methods = ['GET', 'POST']
 
+    @falcon.before(max_body(0))
     def on_get(self, req, resp):
         self.verify_session(req, resp)
         super().on_get(req, resp)
@@ -180,6 +215,10 @@ class BookCollectionResource(CollectionResource, VerificationMixin):
         self.verify_session(req, resp)
         self.verify_input(req)
         resource.owner = int(self.q_ownerid)
+
+    @falcon.before(max_body(1024))
+    def on_post(self, req, resp, *args, **kwargs):
+        super().on_post(self, req, resp, *args, **kwargs)
 
 
 class BookResource(SingleResource, VerificationMixin):
