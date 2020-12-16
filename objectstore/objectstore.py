@@ -193,7 +193,8 @@ class VerificationMixin:
             for k, m in self.match.items():
                 pattern, length = m
                 if k in req.context['doc']:
-                    value = req.context['doc'][k]
+                    value = str(req.context['doc'][k])
+                    logger.debug(f'{k}={value}')
                     if len(value) > length or not pattern.fullmatch(value):
                         raise falcon.HTTPBadRequest()
 
