@@ -272,8 +272,9 @@ class ImageCollectionResource(CollectionResource, VerificationMixin):
     model = Image
     methods = ['POST']
 
+    @falcon.before(max_body(6 * 1024 * 1024))
     def on_post(self, req, resp, *args, **kwargs):
-        super().on_post(self, req, resp, *args, **kwargs)
+        super().on_post(req, resp, *args, **kwargs)
 
     def before_post(self, req, resp, db_session, resource, *args, **kwargs):
         """
