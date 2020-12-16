@@ -195,8 +195,8 @@ class VerificationMixin:
                 pattern, length = m
                 if k in req.context['doc']:
                     value = req.context['doc'][k]
-                if len(value) > length or not pattern.fullmatch(value):
-                    raise falcon.HTTPBadRequest()
+                    if len(value) > length or not pattern.fullmatch(value):
+                        raise falcon.HTTPBadRequest()
 
 
 # note that there currently is no input verification on any of the fields
