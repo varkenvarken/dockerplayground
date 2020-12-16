@@ -158,8 +158,10 @@ class Book(Base):
 
 class VerificationMixin:
 
-    legaltitle = compile(r"[^\p{C}]+")  # any printable characters
-    legalowner = compile(r"\d+")    # any decimal digits
+    match = {
+        'title': (compile(r"[^\p{C}]+"), 100),  # any printable characters
+        'owner': (compile(r"\d+"), 10),    # any decimal digits
+    }
 
     def verify_session(self, req, resp):
         self.q_ownerid = None
@@ -182,13 +184,11 @@ class VerificationMixin:
     def verify_input(self, req):
         if 'doc' in req.context:
             logger.debug(req.context['doc'])
-            if 'owner' in req.context['doc']:
-                value = req.context['doc']['owner']
-                if len(value) > 10 or not self.legalowner.fullmatch(value):
-                    raise falcon.HTTPBadRequest()
-            if 'title' in req.context['doc']:
-                value = req.context['doc']['owner']
-                if len(value) > 100 or not self.legaltitle.fullmatch(value):
+            for k, m in self.match.items():
+                pattern, length = m
+                if k in req.context['doc']:
+                    value = req.context['doc'][k]
+                if len(value) > length or not pattern.fullmatch(value):
                     raise falcon.HTTPBadRequest()
 
 
