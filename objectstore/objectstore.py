@@ -163,7 +163,6 @@ class VerificationMixin:
     # or have the same requirements
     match = {
         'title':     (compile(r"[^\p{C}]*"), 100),      # any printable characters, maybe empty
-        'owner':     (compile(r"\d*"), 10),             # any decimal digits, maybe empty
         'author':    (compile(r"[^\p{C}]*"), 50),       # any printable characters, maybe empty
         'isbn':      (compile(r"\d*"), 13),             # up to 13 digits, may be empty
         'publisher': (compile(r"[^\p{C}]*"), 50),       # any printable characters, maybe empty
