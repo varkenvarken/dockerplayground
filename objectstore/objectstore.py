@@ -207,7 +207,6 @@ class BookCollectionResource(CollectionResource, VerificationMixin):
     model = Book
     methods = ['GET', 'POST']
 
-    @falcon.before(max_body(0))
     def on_get(self, req, resp):
         self.verify_session(req, resp)
         super().on_get(req, resp)
@@ -222,10 +221,6 @@ class BookCollectionResource(CollectionResource, VerificationMixin):
         self.verify_session(req, resp)
         self.verify_input(req)
         resource.owner = int(self.q_ownerid)
-
-#    @falcon.before(max_body(1024))
-#    def on_post(self, req, resp, *args, **kwargs):
-#        super().on_post(self, req, resp, *args, **kwargs)
 
 
 class BookResource(SingleResource, VerificationMixin):
@@ -277,7 +272,6 @@ class ImageCollectionResource(CollectionResource, VerificationMixin):
     model = Image
     methods = ['POST']
 
-    @falcon.before(max_body(6 * 1024 * 1024))  # 6 MB (because image is base64 encoded it might be bigger on-the-wire than in storage)
     def on_post(self, req, resp, *args, **kwargs):
         super().on_post(self, req, resp, *args, **kwargs)
 
