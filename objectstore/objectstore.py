@@ -223,9 +223,9 @@ class BookCollectionResource(CollectionResource, VerificationMixin):
         self.verify_input(req)
         resource.owner = int(self.q_ownerid)
 
-    @falcon.before(max_body(1024))
-    def on_post(self, req, resp, *args, **kwargs):
-        super().on_post(self, req, resp, *args, **kwargs)
+#    @falcon.before(max_body(1024))
+#    def on_post(self, req, resp, *args, **kwargs):
+#        super().on_post(self, req, resp, *args, **kwargs)
 
 
 class BookResource(SingleResource, VerificationMixin):
