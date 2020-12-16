@@ -164,7 +164,7 @@ class VerificationMixin:
         'author':    (compile(r"[^\p{C}]*"), 50),       # any printable characters, maybe empty
         'isbn':      (compile(r"\d*"), 13),             # up to 13 digits, may be empty
         'publisher': (compile(r"[^\p{C}]*"), 50),       # any printable characters, maybe empty
-        'value':     (compile(r"(\d+(\.d*)?)|0"), 10),  # a number followed by an optional fraction or 0
+        'coverart':  (compile(r"\d*"), 32),             # up to 32 digits, may be empty
     }
 
     def verify_session(self, req, resp):
