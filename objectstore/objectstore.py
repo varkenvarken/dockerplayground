@@ -158,6 +158,9 @@ class Book(Base):
 
 class VerificationMixin:
 
+    # note that these verifications are for the strings only and are applied
+    # to any entity that inherits this mixin so attributes should be unique
+    # or have the same requirements
     match = {
         'title':     (compile(r"[^\p{C}]*"), 100),      # any printable characters, maybe empty
         'owner':     (compile(r"\d+"), 10),             # any decimal digits
@@ -261,7 +264,6 @@ class BookResource(SingleResource, VerificationMixin):
         super().on_delete(req, resp, *args, **kwargs)
 
 
-# images should be owned as well (by crawler?)
 class Image(Base):
     __tablename__ = 'images'
     id         = Column(Integer, primary_key=True)
@@ -271,25 +273,34 @@ class Image(Base):
     created    = Column(DateTime(), default=datetime.now())
 
 
-class ImageCollectionResource(CollectionResource):
+class ImageCollectionResource(CollectionResource, VerificationMixin):
     model = Image
+    methods = ['POST']
 
-    # TODO add actions for PUT as well.
+    @falcon.before(max_body(6 * 1024 * 1024))  # 6 MB (because image is base64 encoded it might be bigger on-the-wire than in storage)
+    def on_post(self, req, resp, *args, **kwargs):
+        super().on_post(self, req, resp, *args, **kwargs)
+
     def before_post(self, req, resp, db_session, resource, *args, **kwargs):
         """
         Data field is converted to bytes (it is assumed to be base64
         encoded in UTF-8).
         """
+        self.verify_session(req, resp)
+        self.verify_input(req)
         self.original_data = resource.data
         resource.data = b64decode(bytes(resource.data, 'UTF-8'))
+        resource.owner = int(self.q_ownerid)
 
     def after_post(self, req, resp, new, *args, **kwargs):
         # 'new' is the created SQLAlchemy instance
         new.data = self.original_data
 
 
+# anybody can get an image
 class ImageResource(SingleResource):
     model = Image
+    methods = ['GET']
 
 
 # TODO this is NOT the way to do it (because we allow too much and
